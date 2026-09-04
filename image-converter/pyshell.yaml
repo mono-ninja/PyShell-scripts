@@ -1,0 +1,131 @@
+schema: 1
+id: com.pyshell.imageconverter
+name: Image Converter
+version: 1
+description: Convert images to AVIF, WebP, JPEG, PNG, TIFF, BMP with adjustable quality
+icon: lucide:image
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  # --- Image source ---
+  - key: input_mode
+    type: choice
+    label: Source
+    help: Single image, multiple selected files, or a folder
+    default: single
+    group: Input
+    options:
+      - {value: single, label: Single image}
+      - {value: multiple, label: Multiple images}
+      - {value: folder, label: Folder}
+    binding: {kind: arg, flag: "--mode", style: space}
+
+  - key: single_image
+    type: file
+    label: Image
+    help: File to convert
+    extensions: [png, jpg, jpeg, webp, avif, tif, tiff, bmp, gif]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: single
+    group: Input
+    binding: {kind: arg, flag: "--single-image", style: space}
+
+  - key: multiple_images
+    type: files
+    label: Images
+    help: Files to convert (you can select several)
+    extensions: [png, jpg, jpeg, webp, avif, tif, tiff, bmp, gif]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: multiple
+    group: Input
+    binding: {kind: arg, flag: "--input-file", style: repeat}
+
+  - key: input_folder
+    type: dir
+    label: Image folder
+    help: All images in this folder will be converted
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--input-folder", style: space}
+
+  - key: recursive
+    type: bool
+    label: Recursive (with subfolders)
+    help: Walk the folder along with its subfolders, preserving the structure in the output
+    default: false
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--recursive", style: flag}
+
+  # --- Conversion settings ---
+  - key: output_format
+    type: choice
+    label: Format
+    help: Target format. AVIF and WebP give the smallest size while keeping quality
+    default: webp
+    group: Conversion
+    options:
+      - {value: avif, label: AVIF — best compression}
+      - {value: webp, label: WebP — small size, browser-friendly}
+      - {value: jpeg, label: JPEG — universal}
+      - {value: png, label: PNG — lossless}
+      - {value: tiff, label: TIFF}
+      - {value: bmp, label: BMP}
+    binding: {kind: arg, flag: "--format", style: space}
+
+  - key: quality
+    type: int
+    label: Quality
+    help: 1–100. For AVIF/WebP/JPEG — compression quality; for PNG — lossless compression strength (higher = smaller file, slower). TIFF and BMP ignore the value
+    min: 1
+    max: 100
+    default: 85
+    group: Conversion
+    binding: {kind: arg, flag: "--quality", style: space}
+
+  - key: max_size
+    type: int
+    label: Max size (px)
+    help: Proportionally shrink to the given longest side. 0 = no change. Useful for web optimization
+    min: 0
+    max: 50000
+    default: 0
+    group: Conversion
+    binding: {kind: arg, flag: "--max-size", style: space}
+
+  # --- Output ---
+  - key: output_folder
+    type: dir
+    label: Output folder
+    help: Where to save the converted files
+    required: true
+    group: Output
+    binding: {kind: arg, flag: "--output-folder", style: space}
+
+  - key: overwrite
+    type: bool
+    label: Overwrite existing
+    help: When off — existing files are skipped
+    default: false
+    group: Output
+    binding: {kind: arg, flag: "--overwrite", style: flag}
+
+outputs:
+  artifacts: []
+  result: table

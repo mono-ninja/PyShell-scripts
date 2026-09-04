@@ -1,0 +1,8 @@
+# BotHunter - SEO Log Analyzer
+# Python 3.11+ dependencies
+#
+# PyShell installs these via `uv pip install -r requirements.txt`.
+# The tool runs without any dependencies (pure stdlib) — PyYAML is only
+# needed for loading botHunter_config.yaml defaults.
+
+pyyaml>=6.0

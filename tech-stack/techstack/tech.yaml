@@ -1,0 +1,1200 @@
+# Tech Stack — курована база сигнатур технологій.
+#
+# Дані тут, а не в Python, бо кожне оновлення бази не має бути правкою коду й
+# рев'ю Python-дифу. Поле `updated`
+# потрапляє у звіт, бо база застаріває.
+#
+# Схема навмисно ізоморфна upstream-базі enthec/webappanalyzer: ті самі вектори
+# звуться `header/cookie/meta/html/script/inline_script/stylesheet/url_path/
+# js_global`, а версія вирізається групою `version_group`. Це робить конвертер
+# роботою на години, а не на тиждень.
+#
+# `where` може бути: header | cookie | meta | html | script (URL <script src>) |
+# inline_script | stylesheet | url_path | js_global (тільки під --render).
+#   - header:    потребує `name` (ім'я заголовка, lower-case)
+#   - cookie:    потребує `name` (ім'я cookie); шукає по імені, не значенню
+#   - meta:      потребує `name` (name або property, lower-case)
+#   - js_global: потребує `expr` (шлях у window) + `pattern`; `requires: render`
+#
+# `version_group` — індекс групи регулярки, де сидить версія.
+# `confidence` — 0..100 внесок одного сигналу; накопичується як 1-Π(1-cᵢ).
+# `implies`    — похідна технологія, confidence не вища за джерело.
+# `excludes`   — конфлікт (Apache + IIS), лишається сильніший сигнал.
+# `negative`   — негативний сигнал: збіг прибирає технологію.
+# `requires`   — `render` — сигнал працює лише з --render.
+
+version: 1
+updated: 2026-08-27
+
+categories:
+  - {id: server,       label: Web server,           order: 10}
+  - {id: language,     label: Language / runtime,   order: 20}
+  - {id: cms,          label: CMS,                  order: 30}
+  - {id: ecommerce,    label: E-commerce,           order: 35}
+  - {id: js-framework, label: JS framework,         order: 40}
+  - {id: ssr,          label: SSR / meta-framework, order: 45}
+  - {id: js-library,   label: JS library,           order: 50}
+  - {id: ui,           label: UI kit,               order: 55}
+  - {id: build,        label: Build tool,           order: 60}
+  - {id: analytics,    label: Analytics,            order: 70}
+  - {id: advertising,  label: Advertising,          order: 75}
+  - {id: cdn,          label: CDN,                  order: 80}
+  - {id: hosting,      label: Hosting,              order: 85}
+  - {id: monitoring,   label: Monitoring,           order: 90}
+  - {id: auth,         label: Auth,                 order: 100}
+  - {id: payment,      label: Payments,             order: 105}
+  - {id: font,         label: Fonts,                order: 110}
+  - {id: database,     label: DB / cache,           order: 115}
+
+technologies:
+  # ── Web servers ──
+  - slug: nginx
+    name: nginx
+    categories: [server]
+    cpe: cpe:2.3:a:nginx:nginx:*:*:*:*:*:*:*:*
+    signals:
+      - {where: header, name: server, pattern: 'nginx(?:/([\d.]+))?', confidence: 100, version_group: 1}
+
+  - slug: apache
+    name: Apache HTTP Server
+    categories: [server]
+    cpe: cpe:2.3:a:apache:http_server:*:*:*:*:*:*:*:*
+    signals:
+      - {where: header, name: server, pattern: 'Apache(?:/([\d.]+))?', confidence: 100, version_group: 1}
+
+  - slug: litespeed
+    name: LiteSpeed
+    categories: [server]
+    signals:
+      - {where: header, name: server, pattern: 'LiteSpeed', confidence: 100}
+
+  - slug: microsoft-iis
+    name: Microsoft IIS
+    categories: [server]
+    cpe: cpe:2.3:a:microsoft:internet_information_server:*:*:*:*:*:*:*:*
+    signals:
+      - {where: header, name: server, pattern: 'Microsoft-IIS(?:/([\d.]+))?', confidence: 100, version_group: 1}
+
+  - slug: openresty
+    name: OpenResty
+    categories: [server]
+    implies: [nginx, lua]
+    signals:
+      - {where: header, name: server, pattern: 'openresty(?:/([\d.]+))?', confidence: 100, version_group: 1}
+
+  - slug: caddy
+    name: Caddy
+    categories: [server]
+    signals:
+      - {where: header, name: server, pattern: 'Caddy', confidence: 100}
+
+  - slug: envoy
+    name: Envoy
+    categories: [server]
+    signals:
+      - {where: header, name: server, pattern: 'envoy', confidence: 90}
+
+  - slug: tomcat
+    name: Apache Tomcat
+    categories: [server]
+    implies: [java]
+    signals:
+      - {where: header, name: server, pattern: 'Apache-Coyote|Tomcat(?:/([\d.]+))?', confidence: 90, version_group: 1}
+
+  - slug: jetty
+    name: Jetty
+    categories: [server]
+    implies: [java]
+    signals:
+      - {where: header, name: server, pattern: 'Jetty\(([\d.]+)\)', confidence: 100, version_group: 1}
+
+  # ── Languages / runtimes ──
+  - slug: php
+    name: PHP
+    categories: [language]
+    cpe: cpe:2.3:a:php:php:*:*:*:*:*:*:*:*
+    signals:
+      - {where: header, name: x-powered-by, pattern: 'PHP(?:/([\d.]+))?', confidence: 100, version_group: 1}
+      - {where: cookie, name: PHPSESSID, pattern: '.', confidence: 60}
+
+  - slug: aspnet
+    name: ASP.NET
+    categories: [language]
+    implies: [dotnet]
+    signals:
+      - {where: header, name: x-powered-by, pattern: 'ASP\.NET', confidence: 90}
+      - {where: header, name: x-aspnet-version, pattern: '([\d.]+)', confidence: 100, version_group: 1}
+      - {where: header, name: x-aspnetmvc-version, pattern: '([\d.]+)', confidence: 100, version_group: 1}
+
+  - slug: dotnet
+    name: .NET
+    categories: [language]
+    signals:
+      - {where: header, name: x-powered-by, pattern: '\.NET', confidence: 70}
+
+  - slug: express
+    name: Express
+    categories: [language]
+    implies: [nodejs]
+    signals:
+      - {where: header, name: x-powered-by, pattern: 'Express', confidence: 90}
+
+  - slug: nodejs
+    name: Node.js
+    categories: [language]
+    cpe: cpe:2.3:a:nodejs:node.js:*:*:*:*:*:*:*:*
+    signals:
+      - {where: header, name: x-powered-by, pattern: 'Node', confidence: 60}
+
+  - slug: lua
+    name: Lua
+    categories: [language]
+    signals: []
+
+  - slug: java
+    name: Java
+    categories: [language]
+    signals: []
+
+  - slug: python
+    name: Python
+    categories: [language]
+    signals:
+      - {where: header, name: server, pattern: 'gunicorn(?:/([\d.]+))?', confidence: 80, version_group: 1}
+      - {where: header, name: server, pattern: 'Werkzeug(?:/([\d.]+))?', confidence: 80, version_group: 1}
+      - {where: header, name: server, pattern: 'uvicorn', confidence: 70}
+
+  - slug: gunicorn
+    name: Gunicorn
+    categories: [server]
+    implies: [python]
+    signals:
+      - {where: header, name: server, pattern: 'gunicorn(?:/([\d.]+))?', confidence: 90, version_group: 1}
+
+  - slug: django
+    name: Django
+    categories: [language]
+    implies: [python]
+    signals:
+      - {where: cookie, name: csrftoken, pattern: '.', confidence: 50}
+      - {where: cookie, name: sessionid, pattern: '.', confidence: 40}
+
+  - slug: wagtail
+    name: Wagtail
+    categories: [cms]
+    implies: [django, python]
+    signals:
+      - {where: meta, name: generator, pattern: 'Wagtail(?:\s+([\d.]+))?', confidence: 100, version_group: 1}
+
+  - slug: flask
+    name: Flask
+    categories: [language]
+    implies: [python]
+    signals:
+      - {where: header, name: server, pattern: 'Werkzeug', confidence: 70}
+
+  - slug: ruby
+    name: Ruby
+    categories: [language]
+    signals: []
+
+  - slug: rails
+    name: Ruby on Rails
+    categories: [language]
+    implies: [ruby]
+    signals:
+      - {where: header, name: x-powered-by, pattern: 'Phusion Passenger', confidence: 70}
+      - {where: cookie, name: _rails_session, pattern: '.', confidence: 60}
+      - {where: header, name: x-runtime, pattern: '.', confidence: 40}
+
+  - slug: spring
+    name: Spring
+    categories: [language]
+    implies: [java]
+    signals:
+      - {where: header, name: x-application-context, pattern: '.', confidence: 70}
+
+  # ── CDN ──
+  - slug: cloudflare
+    name: Cloudflare
+    categories: [cdn]
+    signals:
+      - {where: header, name: cf-ray, pattern: '.', confidence: 100}
+      - {where: header, name: server, pattern: 'cloudflare', confidence: 100}
+
+  - slug: vercel
+    name: Vercel
+    categories: [cdn]
+    signals:
+      - {where: header, name: x-vercel-id, pattern: '.', confidence: 100}
+      - {where: header, name: server, pattern: 'Vercel', confidence: 90}
+
+  - slug: cloudfront
+    name: AWS CloudFront
+    categories: [cdn]
+    signals:
+      - {where: header, name: x-amz-cf-id, pattern: '.', confidence: 100}
+      - {where: header, name: x-amz-cf-pop, pattern: '.', confidence: 90}
+      - {where: header, name: via, pattern: 'CloudFront', confidence: 90}
+
+  - slug: fastly
+    name: Fastly
+    categories: [cdn]
+    signals:
+      - {where: header, name: x-served-by, pattern: 'cache-', confidence: 90}
+      - {where: header, name: x-fastly, pattern: '.', confidence: 100}
+
+  - slug: akamai
+    name: Akamai
+    categories: [cdn]
+    signals:
+      - {where: header, name: x-akamai-transformed, pattern: '.', confidence: 100}
+      - {where: header, name: x-akamai-request-id, pattern: '.', confidence: 90}
+
+  - slug: netlify
+    name: Netlify
+    categories: [cdn, hosting]
+    signals:
+      - {where: header, name: x-nf-request-id, pattern: '.', confidence: 100}
+
+  - slug: bunnycdn
+    name: BunnyCDN
+    categories: [cdn]
+    signals:
+      - {where: header, name: bunnycdn-cache-control, pattern: '.', confidence: 100}
+
+  - slug: sucuri
+    name: Sucuri
+    categories: [cdn]
+    signals:
+      - {where: header, name: x-sucuri-id, pattern: '.', confidence: 100}
+
+  - slug: imperva
+    name: Imperva / Incapsula
+    categories: [cdn]
+    signals:
+      - {where: header, name: x-iinfo, pattern: '.', confidence: 90}
+
+  - slug: bunnycdn-storage
+    name: Bunny.net
+    categories: [cdn]
+    signals:
+      - {where: header, name: server, pattern: 'bunnycdn', confidence: 90}
+
+  - slug: keycdn
+    name: KeyCDN
+    categories: [cdn]
+    signals:
+      - {where: header, name: x-kinsta-cache, pattern: '.', confidence: 30}
+      - {where: header, name: x-edge-ip, pattern: 'keycdn', confidence: 80}
+
+  - slug: jsdelivr
+    name: jsDelivr
+    categories: [cdn]
+    signals:
+      - {where: script, pattern: 'cdn\.jsdelivr\.net', confidence: 70}
+      - {where: stylesheet, pattern: 'cdn\.jsdelivr\.net', confidence: 70}
+
+  - slug: unpkg
+    name: unpkg
+    categories: [cdn]
+    signals:
+      - {where: script, pattern: 'unpkg\.com', confidence: 70}
+
+  # ── CMS ──
+  - slug: wordpress
+    name: WordPress
+    categories: [cms]
+    implies: [php]
+    cpe: cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*
+    signals:
+      - {where: meta, name: generator, pattern: 'WordPress\s+([\d.]+)', confidence: 100, version_group: 1}
+      - {where: html, pattern: '/wp-content/|/wp-includes/', confidence: 90}
+      - {where: script, pattern: '/wp-includes/|/wp-content/', confidence: 90}
+      - {where: stylesheet, pattern: '/wp-content/', confidence: 90}
+
+  - slug: drupal
+    name: Drupal
+    categories: [cms]
+    implies: [php]
+    cpe: cpe:2.3:a:drupal:drupal:*:*:*:*:*:*:*:*
+    signals:
+      - {where: meta, name: generator, pattern: 'Drupal\s+([\d]+)', confidence: 100, version_group: 1}
+      - {where: header, name: x-generator, pattern: 'Drupal', confidence: 90}
+      - {where: html, pattern: 'drupal\.js|sites/all|sites/default', confidence: 70}
+
+  - slug: joomla
+    name: Joomla
+    categories: [cms]
+    implies: [php]
+    cpe: cpe:2.3:a:joomla:joomla\!:*:*:*:*:*:*:*:*
+    signals:
+      - {where: meta, name: generator, pattern: 'Joomla!\?\s*([\d.]+)', confidence: 90, version_group: 1}
+      - {where: meta, name: generator, pattern: 'Joomla', confidence: 90}
+
+  - slug: ghost
+    name: Ghost
+    categories: [cms]
+    signals:
+      - {where: meta, name: generator, pattern: 'Ghost(?:\s+([\d.]+))?', confidence: 100, version_group: 1}
+
+  - slug: webflow
+    name: Webflow
+    categories: [cms]
+    signals:
+      - {where: meta, name: generator, pattern: 'Webflow', confidence: 100}
+
+  - slug: wix
+    name: Wix
+    categories: [cms, ecommerce]
+    signals:
+      - {where: meta, name: generator, pattern: 'Wix\.com', confidence: 100}
+      - {where: header, name: x-wix-request-id, pattern: '.', confidence: 90}
+
+  - slug: squarespace
+    name: Squarespace
+    categories: [cms, ecommerce]
+    signals:
+      - {where: header, name: x-squarespace-cache-compat, pattern: '.', confidence: 100}
+      - {where: html, pattern: 'static1\.squarespace\.com', confidence: 80}
+
+  - slug: typo3
+    name: TYPO3
+    categories: [cms]
+    implies: [php]
+    signals:
+      - {where: meta, name: generator, pattern: 'TYPO3\s+CMS\s+([\d.]+)', confidence: 100, version_group: 1}
+
+  - slug: contao
+    name: Contao
+    categories: [cms]
+    implies: [php]
+    signals:
+      - {where: meta, name: generator, pattern: 'Contao', confidence: 80}
+
+  - slug: craft-cms
+    name: Craft CMS
+    categories: [cms]
+    signals:
+      - {where: cookie, name: CraftSessionId, pattern: '.', confidence: 60}
+
+  - slug: hubspot-cms
+    name: HubSpot CMS
+    categories: [cms]
+    signals:
+      - {where: header, name: x-hs-hub-id, pattern: '.', confidence: 90}
+
+  - slug: strapi
+    name: Strapi
+    categories: [cms]
+    implies: [nodejs]
+    signals:
+      - {where: header, name: x-powered-by, pattern: 'Strapi(?:\s+([\d.]+))?', confidence: 90, version_group: 1}
+
+  # ── E-commerce ──
+  - slug: shopify
+    name: Shopify
+    categories: [ecommerce, cdn]
+    signals:
+      - {where: header, name: x-shopify-stage, pattern: '.', confidence: 100}
+      - {where: header, name: x-shopid, pattern: '.', confidence: 100}
+      - {where: html, pattern: 'cdn\.shopify\.com', confidence: 90}
+      - {where: script, pattern: 'cdn\.shopify\.com', confidence: 80}
+
+  - slug: magento
+    name: Magento
+    categories: [ecommerce]
+    implies: [php]
+    cpe: cpe:2.3:a:magento:magento:*:*:*:*:*:*:*:*
+    signals:
+      - {where: header, name: x-magento-cache-debug, pattern: '.', confidence: 100}
+      - {where: cookie, name: mage-cache-storage, pattern: '.', confidence: 80}
+      - {where: cookie, name: X-Magento-Vary, pattern: '.', confidence: 80}
+
+  - slug: woocommerce
+    name: WooCommerce
+    categories: [ecommerce]
+    implies: [wordpress, php]
+    signals:
+      - {where: html, pattern: 'wp-content/plugins/woocommerce', confidence: 80}
+      - {where: script, pattern: 'wp-content/plugins/woocommerce', confidence: 80}
+      - {where: html, pattern: 'woocommerce-(?:params|inline-js|add-to-cart)', confidence: 75}
+      - {where: script, pattern: '/woocommerce(?:\.min)?\.js', confidence: 75}
+
+  - slug: bigcommerce
+    name: BigCommerce
+    categories: [ecommerce]
+    signals:
+      - {where: header, name: x-bc-store, pattern: '.', confidence: 90}
+      - {where: html, pattern: 'bigcommerce\.com|store\.bc-app', confidence: 70}
+
+  - slug: prestashop
+    name: PrestaShop
+    categories: [ecommerce]
+    implies: [php]
+    signals:
+      - {where: cookie, name: PrestaShop, pattern: '.', confidence: 70}
+      - {where: meta, name: generator, pattern: 'PrestaShop', confidence: 90}
+
+  - slug: opencart
+    name: OpenCart
+    categories: [ecommerce]
+    implies: [php]
+    signals:
+      - {where: cookie, name: currency, pattern: '.', confidence: 20}
+
+  - slug: elementor
+    name: Elementor
+    categories: [js-library]
+    implies: [wordpress, php]
+    signals:
+      - {where: html, pattern: 'elementor', confidence: 70}
+      - {where: script, pattern: '/wp-content/plugins/elementor', confidence: 90}
+
+  # ── SSR / meta-frameworks ──
+  - slug: nextjs
+    name: Next.js
+    categories: [ssr, js-framework]
+    website: https://nextjs.org
+    implies: [react, nodejs]
+    cpe: cpe:2.3:a:vercel:next\.js:*:*:*:*:*:*:*:*
+    signals:
+      - {where: header, name: x-powered-by, pattern: 'Next\.js(?:\s+([\d.]+))?', confidence: 100, version_group: 1}
+      - {where: html, pattern: '__NEXT_DATA__', confidence: 95}
+      - {where: script, pattern: '/_next/static/chunks/', confidence: 90}
+      - {where: script, pattern: '/_next/static/', confidence: 80}
+    version_hints:
+      - {where: script, pattern: '/_next/static/([A-Za-z0-9_-]{20,22})/', kind: build_id}
+
+  - slug: nuxt
+    name: Nuxt
+    categories: [ssr, js-framework]
+    implies: [vue, nodejs]
+    signals:
+      - {where: html, pattern: '__NUXT__|__NUXT_DATA__', confidence: 95}
+      - {where: script, pattern: '/_nuxt/', confidence: 90}
+      - {where: header, name: x-powered-by, pattern: 'Nuxt', confidence: 90}
+
+  - slug: gatsby
+    name: Gatsby
+    categories: [ssr, js-framework]
+    implies: [react]
+    signals:
+      - {where: header, name: x-powered-by, pattern: 'Gatsby', confidence: 90}
+      - {where: html, pattern: '___gatsby', confidence: 80}
+
+  - slug: remix
+    name: Remix
+    categories: [ssr, js-framework]
+    implies: [react, nodejs]
+    signals:
+      - {where: html, pattern: '__remixContext|__remixManifest', confidence: 90}
+      - {where: script, pattern: '/build/manifest-', confidence: 40}
+
+  - slug: astro
+    name: Astro
+    categories: [ssr, js-framework]
+    signals:
+      - {where: html, pattern: 'astro-island', confidence: 90}
+
+  - slug: sveltekit
+    name: SvelteKit
+    categories: [ssr, js-framework]
+    implies: [svelte, nodejs]
+    signals:
+      - {where: script, pattern: '/_app/immutable/', confidence: 80}
+      - {where: html, pattern: 'sveltekit', confidence: 60}
+
+  # ── JS frameworks ──
+  - slug: react
+    name: React
+    categories: [js-framework]
+    signals:
+      - {where: html, pattern: 'data-reactroot|data-react-helmet|__next', confidence: 70}
+      - {where: script, pattern: 'react(?:\.development|\.production\.min)?\.js', confidence: 70}
+      - {where: inline_script, pattern: 'react-dom|ReactDOM', confidence: 50}
+      - {where: js_global, expr: 'React.version', pattern: '([\d.]+)', confidence: 100, version_group: 1, requires: render}
+
+  - slug: vue
+    name: Vue.js
+    categories: [js-framework]
+    signals:
+      - {where: html, pattern: 'data-v-[a-f0-9]{8}|__NUXT__|__nuxt', confidence: 60}
+      - {where: script, pattern: 'vue(?:\.runtime)?(?:\.min)?\.js', confidence: 70}
+      - {where: js_global, expr: 'Vue.version', pattern: '([\d.]+)', confidence: 100, version_group: 1, requires: render}
+
+  - slug: angular
+    name: Angular
+    categories: [js-framework]
+    cpe: cpe:2.3:a:angular:angular:*:*:*:*:*:*:*:*
+    signals:
+      - {where: html, pattern: 'ng-version="([\d.]+)"', confidence: 100, version_group: 1}
+      - {where: html, pattern: 'ng-version', confidence: 90}
+      - {where: script, pattern: 'angular(?:\.min)?\.js', confidence: 70}
+
+  - slug: angularjs
+    name: AngularJS
+    categories: [js-framework]
+    cpe: cpe:2.3:a:angular:angularjs:*:*:*:*:*:*:*:*
+    signals:
+      - {where: script, pattern: 'angular(?:[._-])(\d+\.\d+\.\d+)', confidence: 90, version_group: 1}
+      - {where: html, pattern: 'ng-app=', confidence: 70}
+
+  - slug: svelte
+    name: Svelte
+    categories: [js-framework]
+    signals:
+      - {where: html, pattern: 'svelte-[a-z0-9]{6}', confidence: 80}
+
+  - slug: ember
+    name: Ember.js
+    categories: [js-framework]
+    signals:
+      - {where: script, pattern: 'ember(?:\.min)?\.js', confidence: 80}
+
+  - slug: backbone
+    name: Backbone.js
+    categories: [js-framework]
+    signals:
+      - {where: script, pattern: 'backbone(?:\.min)?\.js', confidence: 80}
+
+  - slug: alpine
+    name: Alpine.js
+    categories: [js-framework]
+    signals:
+      - {where: html, pattern: 'x-data=|alpinejs', confidence: 80}
+      - {where: script, pattern: 'alpinejs', confidence: 80}
+
+  - slug: htmx
+    name: HTMX
+    categories: [js-framework]
+    signals:
+      - {where: html, pattern: 'hx-(get|post|boost|target|swap)', confidence: 80}
+      - {where: script, pattern: 'htmx\.org', confidence: 80}
+
+  - slug: preact
+    name: Preact
+    categories: [js-framework]
+    signals:
+      - {where: script, pattern: 'preact(?:\.min)?\.js', confidence: 70}
+
+  - slug: solid
+    name: SolidJS
+    categories: [js-framework]
+    signals:
+      - {where: script, pattern: 'solid-js', confidence: 70}
+
+  - slug: lit
+    name: Lit
+    categories: [js-framework]
+    signals:
+      - {where: html, pattern: 'lit-element|@lit', confidence: 60}
+
+  - slug: stimulus
+    name: Stimulus
+    categories: [js-framework]
+    signals:
+      - {where: html, pattern: 'data-controller=', confidence: 40}
+
+  - slug: phoenix-liveview
+    name: Phoenix LiveView
+    categories: [js-framework]
+    implies: [elixir]
+    signals:
+      - {where: html, pattern: 'data-phx-session|phx-', confidence: 80}
+
+  - slug: elixir
+    name: Elixir
+    categories: [language]
+    signals: []
+
+  # ── JS libraries ──
+  - slug: jquery
+    name: jQuery
+    categories: [js-library]
+    cpe: cpe:2.3:a:jquery:jquery:*:*:*:*:*:*:*:*
+    signals:
+      - {where: script, pattern: 'jquery[.-](\d+\.\d+\.\d+)(?:\.min)?\.js', confidence: 90, version_group: 1}
+      - {where: script, pattern: 'jquery(?:\.min)?\.js', confidence: 70}
+      - {where: js_global, expr: 'jQuery.fn.jquery', pattern: '([\d.]+)', confidence: 100, version_group: 1, requires: render}
+    negative:
+      - {where: html, pattern: 'jquery-migrate-disabled'}
+
+  - slug: jquery-ui
+    name: jQuery UI
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'jquery-ui[.-](\d+\.\d+\.\d+)', confidence: 90, version_group: 1}
+      - {where: script, pattern: 'jquery-ui', confidence: 70}
+
+  - slug: jquery-migrate
+    name: jQuery Migrate
+    categories: [js-library]
+    implies: [jquery]
+    signals:
+      - {where: script, pattern: 'jquery-migrate', confidence: 80}
+
+  - slug: lodash
+    name: Lodash
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'lodash[.-](\d+\.\d+\.\d+)', confidence: 90, version_group: 1}
+      - {where: script, pattern: 'lodash(?:\.min)?\.js', confidence: 60}
+
+  - slug: moment
+    name: Moment.js
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'moment(?:[.-](\d+\.\d+\.\d+))?(?:\.min)?\.js', confidence: 80, version_group: 1}
+
+  - slug: dayjs
+    name: Day.js
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'dayjs(?:\.min)?\.js', confidence: 70}
+
+  - slug: d3
+    name: D3.js
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'd3(?:\.min)?\.js|d3\.v(\d+)', confidence: 80, version_group: 1}
+
+  - slug: chartjs
+    name: Chart.js
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'chart\.js', confidence: 70}
+
+  - slug: threejs
+    name: Three.js
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'three(?:\.min)?\.js', confidence: 70}
+
+  - slug: gsap
+    name: GSAP
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'gsap(?:\.min)?\.js', confidence: 80}
+
+  - slug: swiper
+    name: Swiper
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'swiper(?:\.min)?\.js|swiper-bundle', confidence: 70}
+      - {where: html, pattern: 'swiper-container|swiper-slide', confidence: 70}
+
+  - slug: axios
+    name: Axios
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'axios[.-](\d+\.\d+\.\d+)', confidence: 80, version_group: 1}
+
+  - slug: dompurify
+    name: DOMPurify
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'dompurify[.-](\d+\.\d+\.\d+)', confidence: 80, version_group: 1}
+
+  - slug: dojo
+    name: Dojo
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'dojo[.-](\d+\.\d+\.\d+)', confidence: 80, version_group: 1}
+
+  - slug: mootools
+    name: MooTools
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'mootools', confidence: 70}
+
+  - slug: prototype
+    name: Prototype.js
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'prototype(?:\.min)?\.js', confidence: 70}
+
+  - slug: underscore
+    name: Underscore.js
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'underscore(?:\.min)?\.js', confidence: 60}
+
+  - slug: hammerjs
+    name: Hammer.js
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'hammer(?:\.min)?\.js', confidence: 60}
+
+  - slug: polyfill-io
+    name: polyfill.io
+    categories: [js-library]
+    signals:
+      - {where: script, pattern: 'polyfill\.io/v3/polyfill\.min\.js', confidence: 90}
+
+  # ── UI kits ──
+  - slug: bootstrap
+    name: Bootstrap
+    categories: [ui]
+    cpe: cpe:2.3:a:getbootstrap:bootstrap:*:*:*:*:*:*:*:*
+    signals:
+      - {where: script, pattern: 'bootstrap[.-](\d+\.\d+\.\d+)', confidence: 90, version_group: 1}
+      - {where: stylesheet, pattern: 'bootstrap[.-](\d+\.\d+\.\d+)', confidence: 90, version_group: 1}
+      - {where: stylesheet, pattern: 'bootstrap(?:\.min)?\.css', confidence: 70}
+      - {where: script, pattern: 'bootstrap(?:\.bundle)?(?:\.min)?\.js', confidence: 70}
+    negative:
+      - {where: html, pattern: 'bootstrap-wrapper'}
+
+  - slug: tailwind
+    name: Tailwind CSS
+    categories: [ui]
+    signals:
+      - {where: stylesheet, pattern: 'tailwind', confidence: 70}
+      - {where: html, pattern: 'class="[^"]*\b(flex|grid|space-x-|md:|lg:)\b', confidence: 30}
+
+  - slug: material-ui
+    name: Material-UI
+    categories: [ui]
+    implies: [react]
+    signals:
+      - {where: html, pattern: 'mui-|MuiButton|material-ui', confidence: 70}
+      - {where: script, pattern: '@mui/', confidence: 60}
+
+  - slug: bulma
+    name: Bulma
+    categories: [ui]
+    signals:
+      - {where: stylesheet, pattern: 'bulma(?:\.min)?\.css', confidence: 80}
+
+  - slug: foundation
+    name: Foundation
+    categories: [ui]
+    signals:
+      - {where: script, pattern: 'foundation(?:\.min)?\.js', confidence: 70}
+
+  - slug: chakra
+    name: Chakra UI
+    categories: [ui]
+    implies: [react]
+    signals:
+      - {where: html, pattern: 'chakra-', confidence: 60}
+
+  - slug: ant-design
+    name: Ant Design
+    categories: [ui]
+    signals:
+      - {where: html, pattern: 'ant-btn|ant-[\w-]+', confidence: 60}
+      - {where: script, pattern: 'antd', confidence: 50}
+
+  - slug: bootstrap-icons
+    name: Bootstrap Icons
+    categories: [ui]
+    signals:
+      - {where: stylesheet, pattern: 'bootstrap-icons', confidence: 60}
+
+  - slug: radix-ui
+    name: Radix UI
+    categories: [ui]
+    implies: [react]
+    signals:
+      - {where: script, pattern: '@radix-ui/', confidence: 60}
+
+  # ── Build tools ──
+  - slug: webpack
+    name: Webpack
+    categories: [build]
+    signals:
+      - {where: script, pattern: '/(dist|build)/.*\.bundle\.js', confidence: 40}
+      - {where: inline_script, pattern: 'webpackChunk', confidence: 70}
+
+  - slug: vite
+    name: Vite
+    categories: [build]
+    signals:
+      - {where: script, pattern: '/@vite/client|/@fs/', confidence: 90}
+      - {where: html, pattern: '@vite|/vite/', confidence: 60}
+
+  - slug: parcel
+    name: Parcel
+    categories: [build]
+    signals:
+      - {where: script, pattern: '/parcel/', confidence: 40}
+
+  - slug: turbopack
+    name: Turbopack
+    categories: [build]
+    implies: [nextjs]
+    signals:
+      - {where: script, pattern: '/_next/static/chunks/.+\.turbo\.js', confidence: 70}
+
+  # ── Analytics ──
+  - slug: google-analytics
+    name: Google Analytics
+    categories: [analytics]
+    signals:
+      - {where: html, pattern: 'google-analytics\.com/(?:ga|analytics)\.js|gtag\(', confidence: 90}
+      - {where: script, pattern: 'www\.google-analytics\.com/analytics\.js', confidence: 90}
+      - {where: script, pattern: 'googletagmanager\.com/gtag/js', confidence: 80}
+
+  - slug: google-analytics-4
+    name: Google Analytics 4
+    categories: [analytics]
+    implies: [google-tag-manager]
+    signals:
+      - {where: script, pattern: 'googletagmanager\.com/gtag/js\?id=G-[A-Z0-9]+', confidence: 90}
+
+  - slug: google-tag-manager
+    name: Google Tag Manager
+    categories: [analytics]
+    signals:
+      - {where: html, pattern: 'googletagmanager\.com/gtm\.js', confidence: 95}
+      - {where: script, pattern: 'googletagmanager\.com/gtm\.js', confidence: 95}
+
+  - slug: plausible
+    name: Plausible
+    categories: [analytics]
+    signals:
+      - {where: script, pattern: 'plausible\.io/js', confidence: 90}
+
+  - slug: matomo
+    name: Matomo
+    categories: [analytics]
+    signals:
+      - {where: html, pattern: 'matomo\.js|_paq\.push', confidence: 80}
+      - {where: script, pattern: 'matomo\.js', confidence: 80}
+
+  - slug: hotjar
+    name: Hotjar
+    categories: [analytics]
+    signals:
+      - {where: script, pattern: 'static\.hotjar\.com', confidence: 90}
+      - {where: html, pattern: 'static\.hotjar\.com', confidence: 80}
+
+  - slug: mixpanel
+    name: Mixpanel
+    categories: [analytics]
+    signals:
+      - {where: script, pattern: 'cdn\.mxpnl\.com|mixpanel', confidence: 70}
+
+  - slug: segment
+    name: Segment
+    categories: [analytics]
+    signals:
+      - {where: script, pattern: 'cdn\.segment\.com/analytics\.js', confidence: 90}
+
+  - slug: clarity
+    name: Microsoft Clarity
+    categories: [analytics]
+    signals:
+      - {where: script, pattern: 'clarity\.ms', confidence: 90}
+
+  - slug: amplitude
+    name: Amplitude
+    categories: [analytics]
+    signals:
+      - {where: script, pattern: 'cdn\.amplitude\.com', confidence: 80}
+
+  - slug: piwik-pro
+    name: Piwik PRO
+    categories: [analytics]
+    signals:
+      - {where: script, pattern: 'piwik\.pro', confidence: 70}
+
+  - slug: snowplow
+    name: Snowplow
+    categories: [analytics]
+    signals:
+      - {where: script, pattern: 'snowplowanalytics', confidence: 70}
+
+  - slug: matomo-tag-manager
+    name: Matomo Tag Manager
+    categories: [analytics]
+    signals:
+      - {where: script, pattern: 'matomo\.org/js/container_', confidence: 70}
+
+  # ── Advertising ──
+  - slug: google-ads
+    name: Google Ads
+    categories: [advertising]
+    signals:
+      - {where: script, pattern: 'www\.googletagmanager\.com/gtag/js\?id=AW-', confidence: 80}
+      - {where: html, pattern: 'googleads\.g\.doubleclick\.net', confidence: 70}
+
+  - slug: google-adsense
+    name: Google AdSense
+    categories: [advertising]
+    signals:
+      - {where: script, pattern: 'pagead2\.googlesyndication\.com', confidence: 90}
+      - {where: html, pattern: 'google_ad_client', confidence: 80}
+
+  - slug: facebook-pixel
+    name: Meta Pixel
+    categories: [advertising]
+    signals:
+      - {where: script, pattern: 'connect\.facebook\.net.*fbevents\.js', confidence: 90}
+      - {where: html, pattern: 'fbq\(', confidence: 70}
+
+  - slug: taboola
+    name: Taboola
+    categories: [advertising]
+    signals:
+      - {where: script, pattern: 'cdn\.taboola\.com', confidence: 80}
+
+  - slug: outbrain
+    name: Outbrain
+    categories: [advertising]
+    signals:
+      - {where: script, pattern: 'widgets\.outbrain\.com', confidence: 80}
+
+  - slug: citrustag
+    name: Criteo
+    categories: [advertising]
+    signals:
+      - {where: script, pattern: 'static\.criteo\.net', confidence: 70}
+
+  - slug: amazon-ads
+    name: Amazon Ads
+    categories: [advertising]
+    signals:
+      - {where: script, pattern: 'aax\.amazon-adsystem\.com', confidence: 70}
+
+  - slug: tiktok-pixel
+    name: TikTok Pixel
+    categories: [advertising]
+    signals:
+      - {where: script, pattern: 'analytics\.tiktok\.com/i18n/pixel/events\.js', confidence: 80}
+
+  - slug: linkedin-insight
+    name: LinkedIn Insight Tag
+    categories: [advertising]
+    signals:
+      - {where: script, pattern: 'snap\.licdn\.com/li\.insight\.min\.js', confidence: 80}
+
+  # ── Hosting ──
+  - slug: github-pages
+    name: GitHub Pages
+    categories: [hosting]
+    signals:
+      - {where: header, name: server, pattern: 'GitHub', confidence: 90}
+
+  - slug: heroku
+    name: Heroku
+    categories: [hosting]
+    signals:
+      - {where: header, name: via, pattern: 'heroku', confidence: 80}
+
+  - slug: pantheon
+    name: Pantheon
+    categories: [hosting]
+    signals:
+      - {where: header, name: x-pantheon-styx-hostname, pattern: '.', confidence: 90}
+
+  - slug: wpengine
+    name: WP Engine
+    categories: [hosting]
+    implies: [wordpress]
+    signals:
+      - {where: header, name: x-powered-by, pattern: 'WP Engine', confidence: 80}
+
+  - slug: kinsta
+    name: Kinsta
+    categories: [hosting]
+    implies: [wordpress]
+    signals:
+      - {where: header, name: x-kinsta-cache, pattern: '.', confidence: 70}
+
+  - slug: cloudways
+    name: Cloudways
+    categories: [hosting]
+    implies: [php]
+    signals:
+      - {where: header, name: server, pattern: 'Cloudways', confidence: 80}
+
+  - slug: flywheel
+    name: Flywheel
+    categories: [hosting]
+    implies: [wordpress]
+    signals:
+      - {where: header, name: x-fw-server, pattern: '.', confidence: 70}
+
+  # ── Monitoring ──
+  - slug: sentry
+    name: Sentry
+    categories: [monitoring]
+    signals:
+      - {where: script, pattern: 'browser\.sentry-cdn\.com|sentry-cdn\.com', confidence: 90}
+      - {where: html, pattern: 'sentry-cdn\.com', confidence: 80}
+
+  - slug: bugsnag
+    name: Bugsnag
+    categories: [monitoring]
+    signals:
+      - {where: script, pattern: 'bugsnag', confidence: 70}
+
+  - slug: datadog
+    name: Datadog
+    categories: [monitoring]
+    signals:
+      - {where: script, pattern: 'datadog', confidence: 60}
+
+  - slug: logrocket
+    name: LogRocket
+    categories: [monitoring]
+    signals:
+      - {where: script, pattern: 'logrocket', confidence: 70}
+
+  - slug: raygun
+    name: Raygun
+    categories: [monitoring]
+    signals:
+      - {where: script, pattern: 'raygun', confidence: 60}
+
+  - slug: new-relic
+    name: New Relic
+    categories: [monitoring]
+    signals:
+      - {where: header, name: x-newrelic-app-data, pattern: '.', confidence: 90}
+
+  # ── Auth ──
+  - slug: auth0
+    name: Auth0
+    categories: [auth]
+    signals:
+      - {where: script, pattern: 'cdn\.auth0\.com', confidence: 90}
+      - {where: html, pattern: 'auth0\.com', confidence: 70}
+
+  - slug: firebase
+    name: Firebase
+    categories: [auth]
+    signals:
+      - {where: script, pattern: 'firebaseauth|firebase\.googleapis', confidence: 70}
+      - {where: html, pattern: 'firebaseapp\.com', confidence: 60}
+
+  - slug: okta
+    name: Okta
+    categories: [auth]
+    signals:
+      - {where: script, pattern: 'okta\.com|oktacdn\.com', confidence: 70}
+
+  - slug: clerk
+    name: Clerk
+    categories: [auth]
+    signals:
+      - {where: script, pattern: 'clerk\.com', confidence: 60}
+
+  - slug: supabase
+    name: Supabase
+    categories: [auth, database]
+    signals:
+      - {where: script, pattern: 'supabase', confidence: 60}
+
+  - slug: keycloak
+    name: Keycloak
+    categories: [auth]
+    implies: [java]
+    signals:
+      - {where: html, pattern: 'keycloak', confidence: 50}
+
+  # ── Payments ──
+  - slug: stripe
+    name: Stripe
+    categories: [payment]
+    signals:
+      - {where: script, pattern: 'js\.stripe\.com', confidence: 90}
+      - {where: html, pattern: 'js\.stripe\.com', confidence: 80}
+
+  - slug: paypal
+    name: PayPal
+    categories: [payment]
+    signals:
+      - {where: script, pattern: 'paypal\.com/sdk', confidence: 90}
+      - {where: html, pattern: 'paypal\.com/sdk', confidence: 70}
+
+  - slug: braintree
+    name: Braintree
+    categories: [payment]
+    signals:
+      - {where: script, pattern: 'braintreegateway\.com', confidence: 80}
+
+  - slug: adyen
+    name: Adyen
+    categories: [payment]
+    signals:
+      - {where: script, pattern: 'checkoutshopper-live\.adyen\.com', confidence: 70}
+
+  - slug: mollie
+    name: Mollie
+    categories: [payment]
+    signals:
+      - {where: script, pattern: 'js\.mollie\.com', confidence: 70}
+
+  - slug: square
+    name: Square
+    categories: [payment]
+    signals:
+      - {where: script, pattern: 'squarecdn\.com', confidence: 60}
+
+  - slug: recaptcha
+    name: reCAPTCHA
+    categories: [auth]
+    signals:
+      - {where: script, pattern: 'google\.com/recaptcha/', confidence: 90}
+      - {where: html, pattern: 'g-recaptcha', confidence: 80}
+
+  - slug: hcaptcha
+    name: hCaptcha
+    categories: [auth]
+    signals:
+      - {where: script, pattern: 'hcaptcha\.com', confidence: 80}
+      - {where: html, pattern: 'h-captcha', confidence: 70}
+
+  - slug: turnstile
+    name: Cloudflare Turnstile
+    categories: [auth]
+    implies: [cloudflare]
+    signals:
+      - {where: script, pattern: 'challenges\.cloudflare\.com/turnstile', confidence: 90}
+      - {where: html, pattern: 'cf-turnstile', confidence: 80}
+
+  # ── Fonts ──
+  - slug: google-fonts
+    name: Google Fonts
+    categories: [font]
+    signals:
+      - {where: html, pattern: 'fonts\.googleapis\.com', confidence: 80}
+      - {where: stylesheet, pattern: 'fonts\.googleapis\.com', confidence: 90}
+      - {where: stylesheet, pattern: 'fonts\.gstatic\.com', confidence: 80}
+
+  - slug: font-awesome
+    name: Font Awesome
+    categories: [font]
+    signals:
+      - {where: stylesheet, pattern: 'fontawesome|font-awesome', confidence: 90}
+      - {where: html, pattern: 'fontawesome|font-awesome', confidence: 70}
+
+  - slug: adobe-fonts
+    name: Adobe Fonts
+    categories: [font]
+    signals:
+      - {where: html, pattern: 'use\.typekit\.net|p\.typekit\.net', confidence: 80}
+      - {where: script, pattern: 'use\.typekit\.net', confidence: 80}
+
+  - slug: google-fonts-earlyaccess
+    name: Fonts.com
+    categories: [font]
+    signals:
+      - {where: stylesheet, pattern: 'fast\.fonts\.com', confidence: 70}
+
+  # ── Databases / caches (visible via headers) ──
+  - slug: redis
+    name: Redis
+    categories: [database]
+    signals:
+      - {where: header, name: x-redis, pattern: '.', confidence: 60}
+
+  - slug: varnish
+    name: Varnish
+    categories: [cdn, database]
+    signals:
+      - {where: header, name: via, pattern: 'varnish', confidence: 90}
+      - {where: header, name: x-varnish, pattern: '.', confidence: 90}

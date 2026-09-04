@@ -1,0 +1,1 @@
+"""seo-checks src package."""

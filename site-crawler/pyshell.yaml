@@ -1,0 +1,241 @@
+schema: 1
+id: com.pyshell.sitecrawler
+name: Site Crawler
+version: 1
+description: Crawl a site from a seed URL and save a structured snapshot (pages, status codes, redirects, canonical, links) for downstream SEO checks
+icon: lucide:compass
+category: SEO
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 1800
+
+inputs:
+  # Design rule for this list: an input may control request volume,
+  # politeness, or URL identity (what counts as a page) — never *which
+  # facts are extracted* from a page that was fetched anyway. Extraction
+  # is effectively free once the body is parsed, an uncollected fact is
+  # unrecoverable without a full re-crawl, and a user deciding today
+  # what a future check will need is a decision they cannot make
+  # correctly. The next toggle here should be justified the way
+  # crawl_resources is: it changes what gets requested.
+  - key: seed_url
+    type: url
+    label: Seed URL
+    help: Where the crawl starts — scheme required (https://…)
+    required: true
+    group: Scope
+    binding: {kind: arg, flag: "--seed-url", style: space}
+
+  - key: include_subdomains
+    type: bool
+    label: Include subdomains
+    help: "blog.example.com matches example.com — host-suffix match, not registrable-domain aware"
+    default: false
+    group: Scope
+    binding: {kind: arg, flag: "--include-subdomains", style: flag}
+
+  - key: path_prefix
+    type: string
+    label: "Limit to path prefix (optional)"
+    help: "e.g. /blog/ — leave blank to crawl the whole scope. The seed URL must itself be under this prefix"
+    group: Scope
+    binding: {kind: arg, flag: "--path-prefix", style: space}
+
+  - key: exclude_pattern
+    type: string
+    label: "Exclude URLs matching (regex, optional)"
+    help: "e.g. /cart/ or \\?filter= — the defence against crawler traps (calendars, faceted navigation) eating the whole page budget"
+    group: Scope
+    binding: {kind: arg, flag: "--exclude-pattern", style: space}
+
+  - key: max_depth
+    type: int
+    label: Max depth
+    min: 0
+    max: 20
+    default: 5
+    group: Scope
+    binding: {kind: arg, flag: "--max-depth", style: space}
+
+  - key: max_pages
+    type: int
+    label: Max pages
+    min: 1
+    max: 100000
+    default: 500
+    group: Scope
+    binding: {kind: arg, flag: "--max-pages", style: space}
+
+  # Polarity note: the default behavior (strip tracking params before dedup)
+  # is the safe one, so the flag opts *out* — PyShell's bool binding passes a
+  # flag only when the field is true, which makes a "strip by default" toggle
+  # impossible to turn off. Same reasoning as ip-domains' skip-verification.
+  - key: keep_tracking_params
+    type: bool
+    label: Keep tracking params
+    help: "Treat ?utm_*/gclid/fbclid URLs as distinct pages (off by default: they are deduped to one page)"
+    default: false
+    group: Scope
+    binding: {kind: arg, flag: "--keep-tracking-params", style: flag}
+
+  - key: ignore_all_query_params
+    type: bool
+    label: "Ignore all query strings"
+    help: "Dedup ?a=1&b=2 down to the bare path — the blunt instrument against faceted navigation exploding into thousands of URLs"
+    default: false
+    group: Scope
+    binding: {kind: arg, flag: "--ignore-all-query-params", style: flag}
+
+  # Single value here; the CLI flag is repeatable (--drop-query-param a
+  # --drop-query-param b) for anyone who needs more than one dropped param.
+  - key: drop_query_param
+    type: string
+    label: "Drop query param before dedup (optional)"
+    help: "e.g. color or size — URLs differing only in this param count as one page. One param here; repeat the CLI flag for several"
+    group: Scope
+    binding: {kind: arg, flag: "--drop-query-param", style: space}
+
+  - key: use_sitemap
+    type: bool
+    label: "Also seed from sitemap.xml"
+    help: "Reads robots.txt Sitemap: entries and /sitemap.xml, and records in_sitemap per page — the only way orphan pages (in the sitemap, linked from nowhere) become visible"
+    default: false
+    group: Scope
+    binding: {kind: arg, flag: "--use-sitemap", style: flag}
+
+  - key: crawl_resources
+    type: bool
+    label: "Also fetch non-HTML resources (img/css/js)"
+    help: Roughly doubles request volume — resource URLs are recorded status-only, never expanded
+    default: false
+    group: Scope
+    binding: {kind: arg, flag: "--crawl-resources", style: flag}
+
+  - key: respect_nofollow
+    type: bool
+    label: "Do not follow rel=nofollow links"
+    help: "Off by default — this script records facts and lets seo-checks judge. A target linked plainly anywhere on the page still counts as followed"
+    default: false
+    group: Scope
+    binding: {kind: arg, flag: "--respect-nofollow", style: flag}
+
+  - key: concurrency
+    type: int
+    label: Concurrent requests
+    min: 1
+    max: 50
+    default: 5
+    group: Politeness
+    binding: {kind: arg, flag: "--concurrency", style: space}
+
+  - key: delay_ms
+    type: int
+    label: "Delay between requests per worker (ms)"
+    min: 0
+    max: 10000
+    default: 200
+    group: Politeness
+    binding: {kind: arg, flag: "--delay-ms", style: space}
+
+  - key: respect_crawl_delay
+    type: bool
+    label: "Honor robots.txt Crawl-delay"
+    help: "When the site asks for a longer gap than the setting above, use the site's number"
+    default: false
+    group: Politeness
+    binding: {kind: arg, flag: "--respect-crawl-delay", style: flag}
+
+  # See keep_tracking_params: politeness is the default, the flag opts out.
+  - key: ignore_robots_txt
+    type: bool
+    label: "Ignore robots.txt (only for sites you own)"
+    help: Crawl URLs the site's robots.txt disallows — disable only on a site you own or are authorized to crawl at will
+    default: false
+    group: Politeness
+    binding: {kind: arg, flag: "--ignore-robots-txt", style: flag}
+
+  - key: user_agent
+    type: string
+    label: User-Agent
+    help: Identifies the crawler honestly instead of spoofing a browser
+    default: "site-crawler/1.0 (+PyShell)"
+    group: Politeness
+    binding: {kind: arg, flag: "--user-agent", style: space}
+
+  # Single value here; the CLI flag is repeatable (--header a --header b).
+  - key: header
+    type: string
+    label: "Extra request header (optional)"
+    help: "'Name: value', e.g. 'X-Forwarded-User: qa' — one header here; repeat the CLI flag for several"
+    group: Politeness
+    binding: {kind: arg, flag: "--header", style: space}
+
+  - key: basic_auth
+    type: secret
+    label: "HTTP basic auth (optional)"
+    help: "user:password — for password-gated staging sites. Stored in Keychain, passed via env — never on argv"
+    group: Politeness
+    binding: {kind: env, name: BASIC_AUTH}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 1
+    max: 120
+    default: 15
+    group: Politeness
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: retries
+    type: int
+    label: Retries per request
+    help: "Applies to connection errors and 429/502/503/504, honoring Retry-After when the server sends one"
+    min: 0
+    max: 5
+    default: 1
+    group: Politeness
+    binding: {kind: arg, flag: "--retries", style: space}
+
+  - key: max_body_bytes
+    type: int
+    label: "Max HTML bytes per page"
+    help: "Bodies are read only up to this cap; past it the page is recorded as truncated (default 5 MB)"
+    min: 1
+    max: 52428800
+    default: 5242880
+    group: Politeness
+    binding: {kind: arg, flag: "--max-body-bytes", style: space}
+
+  - key: max_duration
+    type: int
+    label: "Stop after (s, optional)"
+    help: "Ends the crawl gracefully and still writes the snapshot, instead of being killed by the 1800 s runtime timeout with nothing to show"
+    min: 1
+    max: 86400
+    group: Politeness
+    binding: {kind: arg, flag: "--max-duration", style: space}
+
+  - key: out_dir
+    type: dir
+    label: Snapshot output folder
+    help: Where site_snapshot.json is written — pick a real project folder so seo-checks can read it later
+    required: true
+    group: Output
+    binding: {kind: arg, flag: "--out-dir", style: space}
+
+  - key: resume
+    type: bool
+    label: "Resume from the snapshot already in that folder"
+    help: "Continue an interrupted or capped crawl instead of re-fetching everything it already has"
+    default: false
+    group: Output
+    binding: {kind: arg, flag: "--resume", style: flag}
+
+outputs:
+  artifacts:
+    - "site_snapshot.json"
+    - "crawl_summary.csv"
+  result: table

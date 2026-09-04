@@ -1,0 +1,262 @@
+schema: 1
+id: com.pyshell.seochecks
+name: SEO Checks
+version: 1
+description: Run redirect/broken-link/canonical/duplicate-content/orphan/sitemap checks against a Site Crawler snapshot
+icon: lucide:search
+category: SEO
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  - key: snapshot_file
+    type: file
+    label: Site snapshot
+    extensions: [json]
+    required: true
+    help: site_snapshot.json produced by Site Crawler
+    group: Input
+    binding: {kind: arg, flag: "--snapshot-file", style: space}
+
+  - key: baseline_file
+    type: file
+    label: "Compare against previous findings.json (optional)"
+    extensions: [json]
+    help: "A findings.json from an earlier run of this script — the report notes which findings are new and which are fixed since then"
+    group: Input
+    binding: {kind: arg, flag: "--baseline", style: space}
+
+  - key: checks
+    type: multi_choice
+    label: Checks to run
+    options:
+      - {value: redirects, label: "Redirect chains, loops & internal links to redirecting URLs"}
+      - {value: broken_links, label: "Broken internal links (4xx/5xx)"}
+      - {value: canonical, label: "Canonical tag issues"}
+      - {value: sitemap, label: "Sitemap cross-check (needs a crawl with --use-sitemap)"}
+      - {value: duplicates, label: "Duplicate titles / meta descriptions"}
+      - {value: indexability, label: "Linked pages excluded from indexing (noindex / robots.txt)"}
+      - {value: orphans, label: "Orphan pages & excessive click depth"}
+      - {value: url_variants, label: "http/https, trailing-slash & case URL variants"}
+      - {value: nofollow, label: "Internal rel=nofollow links"}
+      - {value: meta_quality, label: "Missing or oversized title & meta description"}
+      - {value: headings, label: "Heading structure: skipped levels, empty & multiple h1 (schema 4+)"}
+      - {value: titles, label: "Conflicting or empty <title> tags (schema 5+)"}
+      - {value: meta_refresh, label: "meta-refresh redirects (schema 5+)"}
+      - {value: viewport, label: "Missing mobile viewport meta tag (schema 4+)"}
+      - {value: social, label: "Open Graph / Twitter card completeness (schema 5+)"}
+      - {value: base_href, label: "Off-site <base href> (schema 5+)"}
+      - {value: structured_data, label: "Broken JSON-LD & missing structured data (schema 4+)"}
+      - {value: images, label: "Images without alt text, srcs named (schema 3+)"}
+      - {value: sitemap_freshness, label: "Sitemap lastmod vs Last-Modified contradictions (schema 5+)"}
+      - {value: embeds, label: "Third-party iframe embeds (schema 5+)"}
+      - {value: anchors, label: "Generic anchor text ('read more', 'click here') on internal links (schema 4+)"}
+      - {value: hreflang, label: "hreflang reciprocity, duplicate targets & invalid codes (schema 2+)"}
+      - {value: language, label: "Missing <html lang>, invalid codes, RTL pages without dir=rtl (schema 2+)"}
+      - {value: charset, label: "Server vs document charset conflicts (schema 6+)"}
+    default: [redirects, broken_links, canonical]
+    group: Checks
+    binding: {kind: arg, flag: "--checks", style: repeat}
+
+  - key: min_severity
+    type: choice
+    label: "Show findings down to"
+    options:
+      - {value: info, label: "Info and above (everything)"}
+      - {value: warn, label: "Warn and above"}
+      - {value: fail, label: "Fail only"}
+    default: info
+    group: Checks
+    binding: {kind: arg, flag: "--min-severity", style: space}
+
+  - key: group_by
+    type: choice
+    label: "Group the report by"
+    options:
+      - {value: check, label: "Check (default)"}
+      - {value: page, label: "Page — everything wrong with one page together"}
+    default: check
+    group: Checks
+    binding: {kind: arg, flag: "--group-by", style: space}
+
+  - key: check_external_links
+    type: bool
+    label: "Also verify external links (extra requests to third-party sites)"
+    default: false
+    group: External links
+    binding: {kind: arg, flag: "--check-external-links", style: flag}
+
+  - key: external_concurrency
+    type: int
+    label: External check concurrency
+    min: 1
+    max: 20
+    default: 5
+    visible_if: {op: truthy, key: check_external_links}
+    group: External links
+    binding: {kind: arg, flag: "--external-concurrency", style: space}
+
+  - key: external_timeout
+    type: int
+    label: "External check timeout (s)"
+    default: 10
+    min: 1
+    max: 60
+    visible_if: {op: truthy, key: check_external_links}
+    group: External links
+    binding: {kind: arg, flag: "--external-timeout", style: space}
+
+  - key: external_max_urls
+    type: int
+    label: "Stop after this many unique external URLs"
+    help: "Caps the worst case — a site with thousands of external links can otherwise outlast the script timeout"
+    default: 500
+    min: 1
+    max: 20000
+    visible_if: {op: truthy, key: check_external_links}
+    group: External links
+    binding: {kind: arg, flag: "--external-max-urls", style: space}
+
+  - key: external_skip_nofollow
+    type: bool
+    label: "Skip links marked rel=nofollow"
+    default: false
+    visible_if: {op: truthy, key: check_external_links}
+    group: External links
+    binding: {kind: arg, flag: "--external-skip-nofollow", style: flag}
+
+  - key: external_ignore_host
+    type: string
+    label: "Never probe this host (optional)"
+    help: "Subdomains included. One host — for several, run from a terminal with repeated --external-ignore-host flags"
+    visible_if: {op: truthy, key: check_external_links}
+    group: External links
+    binding: {kind: arg, flag: "--external-ignore-host", style: space}
+
+  - key: duplicates_mode
+    type: choice
+    label: "Duplicate matching"
+    options:
+      - {value: exact, label: "Exact match (default)"}
+      - {value: normalized, label: "Normalized — also folds case, spacing and a trailing brand suffix"}
+    default: exact
+    group: Thresholds
+    binding: {kind: arg, flag: "--duplicates-mode", style: space}
+
+  - key: flag_missing_canonical
+    type: bool
+    label: "Also flag pages with no canonical tag at all"
+    default: false
+    group: Thresholds
+    binding: {kind: arg, flag: "--flag-missing-canonical", style: flag}
+
+  - key: title_min
+    type: int
+    label: "Title too short below (chars)"
+    default: 30
+    min: 1
+    max: 200
+    group: Thresholds
+    binding: {kind: arg, flag: "--title-min", style: space}
+
+  - key: title_max
+    type: int
+    label: "Title too long above (chars)"
+    default: 60
+    min: 1
+    max: 200
+    group: Thresholds
+    binding: {kind: arg, flag: "--title-max", style: space}
+
+  - key: desc_min
+    type: int
+    label: "Meta description too short below (chars)"
+    default: 70
+    min: 1
+    max: 400
+    group: Thresholds
+    binding: {kind: arg, flag: "--desc-min", style: space}
+
+  - key: desc_max
+    type: int
+    label: "Meta description too long above (chars)"
+    default: 158
+    min: 1
+    max: 400
+    group: Thresholds
+    binding: {kind: arg, flag: "--desc-max", style: space}
+
+  - key: max_depth_ok
+    type: int
+    label: "Flag pages deeper than this many clicks from the seed"
+    default: 3
+    min: 1
+    max: 20
+    group: Thresholds
+    binding: {kind: arg, flag: "--max-depth-ok", style: space}
+
+  - key: stale_after_days
+    type: int
+    label: "Warn when the snapshot is older than (days)"
+    default: 7
+    min: 1
+    max: 365
+    group: Thresholds
+    binding: {kind: arg, flag: "--stale-after-days", style: space}
+
+  - key: include_path
+    type: string
+    label: "Only check URLs matching this path glob (optional)"
+    help: "e.g. /blog/* — one pattern here; run from a terminal for several --include-path flags. Links and redirects still resolve against the whole site"
+    group: Scope
+    binding: {kind: arg, flag: "--include-path", style: space}
+
+  - key: exclude_path
+    type: string
+    label: "Skip URLs matching this path glob (optional)"
+    help: "e.g. /tag/* — one pattern here; run from a terminal for several --exclude-path flags"
+    group: Scope
+    binding: {kind: arg, flag: "--exclude-path", style: space}
+
+  - key: fail_on
+    type: choice
+    label: "Fail the run (exit code 3) on"
+    help: "Findings aren't failures by default — this is only for a CI gate"
+    options:
+      - {value: none, label: "Nothing — always exit 0 (default)"}
+      - {value: fail, label: "Any fail-severity finding"}
+      - {value: warn, label: "Any warn or fail finding"}
+      - {value: info, label: "Any finding at all"}
+    default: none
+    group: CI
+    binding: {kind: arg, flag: "--fail-on", style: space}
+
+  - key: out_dir
+    type: dir
+    label: "Write artifacts here too (optional)"
+    help: "Artifacts always go to the PyShell run folder; pick a real project folder here so findings.json/csv/report.md survive after the run — same idea as Site Crawler's output folder"
+    group: Output
+    binding: {kind: arg, flag: "--out-dir", style: space}
+
+  - key: format
+    type: choice
+    label: Report format
+    options:
+      - {value: md, label: Markdown (default)}
+      - {value: html, label: Markdown + sortable/filterable report.html}
+      - {value: both, label: Both — same as the option above (CLI parity)}
+    default: md
+    group: Output
+    binding: {kind: arg, flag: "--format", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "findings.csv"
+    - "report.md"
+    - "report.html"
+  result: markdown

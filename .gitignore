@@ -1,0 +1,39 @@
+# Editor / IDE
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests and dev plans are local-only — never committed
+**/tests/
+**/pytest.ini
+**/plan.md
+**/plan_*.md
+
+# Env / secrets / logs
+.env
+.env.*
+*.log
+
+# Pytest
+.pytest_cache/
+.ruff_cache/
+
+# BotHunter run outputs and local launcher
+bot-hunter/reports/
+bot-hunter/logs/
+bot-hunter/run
+
+# NinjaLog run outputs and local logs
+log-attack-checker/report.*
+log-attack-checker/logs/
+log-attack-checker/run

@@ -1,0 +1,167 @@
+schema: 1
+id: com.pyshell.pageseoaudit
+name: Page SEO Audit
+version: 1
+description: Full on-page SEO audit of one URL — meta, headings, alt text, social tags, hreflang, structured data, mixed content
+icon: lucide:file-text
+category: SEO
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  # Covers the default --check-links pass (50 links · concurrency 5 · 10s
+  # timeout ≈ 100s), a maxed-out link count at default knobs (200 · 5 · 10s
+  # = 400s) and the audit itself. Pushing concurrency down or the timeout
+  # up alongside a large max-links can exceed this cap — the run is then
+  # cut short rather than hanging forever.
+  timeout: 600
+
+inputs:
+  - key: url
+    type: url
+    label: URL
+    help: The page to audit, with scheme (https://…) — one page, one report, no crawling
+    required: true
+    group: Request
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: follow_redirects
+    type: bool
+    label: Follow redirects
+    help: Audit the page the URL finally lands on; the redirect chain is shown either way
+    default: true
+    group: Request
+    binding: {kind: arg, flag: "--follow-redirects", style: flag}
+
+  - key: timeout
+    type: int
+    label: "Timeout (s)"
+    help: Per-request timeout (each redirect hop gets its own budget)
+    min: 1
+    max: 120
+    default: 15
+    group: Request
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: user_agent
+    type: string
+    label: User-Agent
+    help: "Defaults to a PyShell audit identity — some WAFs silently drop bare python-requests; an all-blank value falls back to the same default"
+    group: Request
+    binding: {kind: arg, flag: "--user-agent", style: space}
+
+  - key: insecure
+    type: bool
+    label: Skip TLS verification
+    help: "For internal/staging hosts with self-signed certificates — also applies to the optional link check and robots.txt fetch below, so staging links don't fail on the same certificate the page itself was allowed to skip"
+    default: false
+    group: Request
+    binding: {kind: arg, flag: "--insecure", style: flag}
+
+  - key: min_words
+    type: int
+    label: "Thin-content threshold (words)"
+    help: "Below this word count, Content gets an info finding. 300 is a general heuristic — lower it for a site built mostly of short reference pages"
+    min: 0
+    max: 5000
+    default: 300
+    group: Checks
+    binding: {kind: arg, flag: "--min-words", style: space}
+
+  - key: check_robots_txt
+    type: bool
+    label: "Check robots.txt (one extra request, same host)"
+    help: "Folds the crawl-level indexability signal into the same verdict as meta robots and X-Robots-Tag — a page can be indexable per its own tags but still disallowed at the host level"
+    default: false
+    group: Checks
+    binding: {kind: arg, flag: "--check-robots-txt", style: flag}
+
+  - key: check_links
+    type: bool
+    label: "Verify links on the page (extra requests)"
+    help: "Off by default: sends requests to hosts this audit wouldn't otherwise touch — internal and external alike"
+    default: false
+    group: Checks
+    binding: {kind: arg, flag: "--check-links", style: flag}
+
+  - key: link_scope
+    type: choice
+    label: Which links to verify
+    options:
+      - {value: all, label: "All links"}
+      - {value: internal, label: "Internal only"}
+      - {value: external, label: "External only"}
+    default: all
+    visible_if: {op: truthy, key: check_links}
+    group: Checks
+    binding: {kind: arg, flag: "--link-scope", style: space}
+
+  - key: max_links
+    type: int
+    label: "Max links to verify (0 = no cap)"
+    help: "Caps the number of requests the link check can send — a page with hundreds of links no longer means hundreds of requests unless asked for"
+    min: 0
+    max: 200
+    default: 50
+    visible_if: {op: truthy, key: check_links}
+    group: Checks
+    binding: {kind: arg, flag: "--max-links", style: space}
+
+  - key: link_check_concurrency
+    type: int
+    label: Link check concurrency
+    min: 1
+    max: 20
+    default: 5
+    visible_if: {op: truthy, key: check_links}
+    group: Checks
+    binding: {kind: arg, flag: "--link-check-concurrency", style: space}
+
+  - key: link_check_timeout
+    type: int
+    label: "Link check timeout (s)"
+    min: 1
+    max: 30
+    default: 10
+    visible_if: {op: truthy, key: check_links}
+    group: Checks
+    binding: {kind: arg, flag: "--link-check-timeout", style: space}
+
+  - key: ignore
+    type: multi_choice
+    label: "Categories to drop from the report (optional)"
+    help: Removes a whole category's findings — e.g. hide Social on an internal admin tool that will never have a share preview
+    options:
+      - {value: Response, label: Response}
+      - {value: Meta, label: Meta}
+      - {value: Headings, label: Headings}
+      - {value: Images, label: Images}
+      - {value: Social, label: Social}
+      - {value: Hreflang, label: Hreflang}
+      - {value: "Structured Data", label: "Structured Data"}
+      - {value: Content, label: Content}
+      - {value: "Mixed Content", label: "Mixed Content"}
+      - {value: Links, label: Links}
+    default: []
+    group: Checks
+    binding: {kind: arg, flag: "--ignore", style: repeat}
+
+  - key: fail_on
+    type: choice
+    label: Fail the run on
+    help: "Exit code 2 when a finding at this severity or worse is present — wire this into a CI gate. 'None' (default) means the audit's own success is the run's success, whatever it found"
+    options:
+      - {value: none, label: "Nothing — always succeed"}
+      - {value: warn, label: "Warn or worse"}
+      - {value: fail, label: "Fail only"}
+    default: none
+    group: Output
+    binding: {kind: arg, flag: "--fail-on", style: space}
+
+outputs:
+  artifacts:
+    - "page_facts.json"
+    - "findings.json"
+    - "report.md"
+  result: markdown

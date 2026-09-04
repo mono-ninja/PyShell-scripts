@@ -1,0 +1,100 @@
+schema: 1
+id: com.pyshell.bothunter
+name: Bot Hunter
+version: 1
+description: SEO log analyzer — detect bots, optimize crawl budget, and block scrapers in Apache/Nginx access logs
+icon: lucide:bot
+category: SEO
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  # 30 min: multi-GB nginx logs must fit; small logs finish in seconds anyway
+  timeout: 1800
+
+inputs:
+  # ── Input ──
+  - key: logs_dir
+    type: dir
+    label: Logs directory
+    help: Directory with Apache/Nginx log files (.log, .txt, .gz, .bz2), scanned recursively
+    required: true
+    default: logs
+    group: Input
+    binding:
+      kind: arg
+      flag: "--logs-dir"
+      style: space
+
+  - key: domain
+    type: string
+    label: Domain
+    help: Domain name for the report (e.g. example.com)
+    required: true
+    group: Input
+    binding:
+      kind: arg
+      flag: "--domain"
+      style: space
+
+  # ── Analysis ──
+  - key: max_lines
+    type: int
+    label: Max lines per file
+    help: "0 = unlimited. Set a limit for very large logs during testing."
+    min: 0
+    max: 10000000
+    default: 0
+    group: Analysis
+    binding:
+      kind: arg
+      flag: "--max-lines"
+      style: space
+
+  - key: no_blocking
+    type: bool
+    label: Skip blocking rules
+    help: Don't generate nginx/.htaccess blocking configs
+    default: false
+    group: Analysis
+    binding:
+      kind: arg
+      flag: "--no-blocking"
+      style: flag
+
+  # ── Output ──
+  - key: format
+    type: choice
+    label: Report format
+    help: HTML for sharing with clients, JSON for programmatic use, both for archival
+    options:
+      - {value: html, label: HTML}
+      - {value: json, label: JSON}
+      - {value: both, label: HTML + JSON}
+    default: html
+    group: Output
+    binding:
+      kind: arg
+      flag: "--format"
+      style: space
+
+  # ── Debug ──
+  - key: verbose
+    type: bool
+    label: Verbose
+    help: Print file list and detailed progress
+    default: false
+    binding:
+      kind: arg
+      flag: "--verbose"
+      style: flag
+
+outputs:
+  artifacts:
+    - "*.html"
+    - "*.json"
+    - "*.nginx.conf"
+    - "*.htaccess"
+    - "*.robots.txt"
+  result: markdown

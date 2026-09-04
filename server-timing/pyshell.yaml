@@ -1,0 +1,159 @@
+schema: 1
+id: com.pyshell.servertiming
+name: Server Timing
+version: 1
+description: Server response time with phase breakdown (DNS/TCP/TLS/TTFB) and series percentiles
+icon: lucide:timer
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 300
+
+inputs:
+  # ── Target ──────────────────────────────────────────────────────────────
+  - key: url
+    type: url
+    label: Target URL
+    required: true
+    group: Target
+    binding: {kind: positional, index: 0}
+
+  - key: urls_extra
+    type: multiline
+    label: "Additional URLs (one per line)"
+    help: Optional — measure a few more targets in a single run
+    group: Target
+    binding: {kind: temp_file, flag: "--urls-file"}
+
+  # ── Series ──────────────────────────────────────────────────────────────
+  - key: count
+    type: int
+    label: Count
+    min: 1
+    max: 1000
+    default: 20
+    group: Series
+    binding: {kind: arg, flag: "--count", style: space}
+
+  - key: warmup
+    type: int
+    label: Warmup
+    min: 0
+    max: 100
+    default: 3
+    group: Series
+    binding: {kind: arg, flag: "--warmup", style: space}
+
+  - key: delay
+    type: float
+    label: "Delay between requests (s)"
+    min: 0
+    default: 0.2
+    group: Series
+    binding: {kind: arg, flag: "--delay", style: space}
+
+  - key: cache_bust
+    type: bool
+    label: "Cache-bust (?_cb=uuid)"
+    default: false
+    group: Series
+    binding: {kind: arg, flag: "--cache-bust", style: flag}
+
+  - key: reuse
+    type: bool
+    label: "Reuse connection (keep-alive)"
+    default: false
+    group: Series
+    binding: {kind: arg, flag: "--reuse", style: flag}
+
+  - key: gzip
+    type: bool
+    label: Allow gzip
+    default: false
+    group: Series
+    binding: {kind: arg, flag: "--gzip", style: flag}
+
+  # ── Request ─────────────────────────────────────────────────────────────
+  - key: method
+    type: choice
+    label: Method
+    options:
+      - {value: GET}
+      - {value: HEAD}
+      - {value: POST}
+    default: GET
+    group: Request
+    binding: {kind: arg, flag: "--method", style: space}
+
+  - key: headers
+    type: multiline
+    label: "Headers (one per line, Key: Value)"
+    group: Request
+    binding: {kind: temp_file, flag: "--headers-file"}
+
+  - key: data
+    type: file
+    label: Request body
+    extensions: [json, txt]
+    group: Request
+    visible_if: {op: eq, key: method, value: POST}
+    binding: {kind: arg, flag: "--data", style: space}
+
+  # ── Connection ──────────────────────────────────────────────────────────
+  - key: timeout
+    type: float
+    label: "Timeout (s)"
+    min: 1
+    default: 10
+    group: Connection
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: insecure
+    type: bool
+    label: Skip TLS verification
+    default: false
+    group: Connection
+    binding: {kind: arg, flag: "--insecure", style: flag}
+
+  - key: ipv4
+    type: bool
+    label: Force IPv4
+    default: false
+    group: Connection
+    binding: {kind: arg, flag: "--ipv4", style: flag}
+
+  - key: ipv6
+    type: bool
+    label: Force IPv6
+    default: false
+    group: Connection
+    binding: {kind: arg, flag: "--ipv6", style: flag}
+
+  # ── Output ──────────────────────────────────────────────────────────────
+  - key: format
+    type: choice
+    label: Output format
+    options:
+      - {value: human, label: Human}
+      - {value: json, label: JSON}
+      - {value: csv, label: CSV}
+      - {value: prometheus, label: Prometheus}
+    default: human
+    group: Output
+    binding: {kind: arg, flag: "--format", style: space}
+
+  - key: threshold_p95
+    type: float
+    label: "Fail if p95 exceeds (ms)"
+    group: Output
+    binding: {kind: arg, flag: "--threshold-p95", style: space}
+
+outputs:
+  artifacts:
+    - "*.json"
+    - "*.csv"
+    - "*.prom"
+  result: table

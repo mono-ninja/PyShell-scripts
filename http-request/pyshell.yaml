@@ -1,0 +1,191 @@
+schema: 1
+id: com.pyshell.httprequest
+name: HTTP Request
+version: 1
+description: Send one HTTP request and inspect the response — status, headers, body, timing, cookies
+icon: lucide:send
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: method
+    type: choice
+    label: Method
+    options:
+      - {value: GET, label: GET}
+      - {value: POST, label: POST}
+      - {value: PUT, label: PUT}
+      - {value: PATCH, label: PATCH}
+      - {value: DELETE, label: DELETE}
+      - {value: HEAD, label: HEAD}
+      - {value: OPTIONS, label: OPTIONS}
+    default: GET
+    group: Request
+    binding:
+      kind: arg
+      flag: "--method"
+      style: space
+
+  - key: url
+    type: url
+    label: URL
+    help: Full URL including scheme (https://…)
+    required: true
+    group: Request
+    binding:
+      kind: arg
+      flag: "--url"
+      style: space
+
+  - key: query
+    type: multiline
+    label: Query params
+    help: 'JSON object {"key": "value"} or one "key=value" per line. Merged into the URL.'
+    group: Request
+    binding:
+      kind: arg
+      flag: "--query"
+      style: space
+
+  - key: headers
+    type: multiline
+    label: Headers
+    help: 'JSON object {"Key": "Value"} or one "Key: Value" per line. Optional.'
+    group: Request
+    binding:
+      kind: arg
+      flag: "--headers"
+      style: space
+
+  - key: body
+    type: multiline
+    label: Body
+    help: Request body. If valid JSON, sent as JSON; otherwise as raw text. Ignored for GET / HEAD / OPTIONS.
+    group: Request
+    binding:
+      kind: arg
+      flag: "--body"
+      style: space
+
+  - key: auth_token
+    type: secret
+    label: Bearer token
+    help: 'Sent as `Authorization: Bearer <token>`. Stored in Keychain, passed via env — never on argv.'
+    group: Auth
+    binding:
+      kind: env
+      name: AUTH_TOKEN
+
+  - key: auth_user
+    type: string
+    label: Basic-auth user
+    help: Username for HTTP Basic auth. Paired with the password below.
+    group: Auth
+    binding:
+      kind: arg
+      flag: "--auth-user"
+      style: space
+
+  - key: auth_password
+    type: secret
+    label: Basic-auth password
+    help: Password for HTTP Basic auth. Stored in Keychain, passed via env.
+    group: Auth
+    binding:
+      kind: env
+      name: AUTH_PASSWORD
+
+  - key: timeout
+    type: int
+    label: Timeout (seconds)
+    min: 1
+    max: 90
+    default: 15
+    group: Options
+    binding:
+      kind: arg
+      flag: "--timeout"
+      style: space
+
+  - key: max_bytes
+    type: int
+    label: Max body bytes
+    min: 1
+    max: 104857600
+    default: 5242880
+    help: Cap on response body bytes read into memory (default 5 MB). Larger bodies are truncated.
+    group: Options
+    binding:
+      kind: arg
+      flag: "--max-bytes"
+      style: space
+
+  - key: follow_redirects
+    type: bool
+    label: Follow redirects
+    help: Follow 3xx redirects automatically.
+    default: true
+    group: Options
+    binding:
+      kind: arg
+      flag: "--follow-redirects"
+      style: flag
+
+  - key: insecure
+    type: bool
+    label: Skip TLS verification
+    help: Do not verify the server certificate. A warning is shown in the report.
+    default: false
+    group: Options
+    binding:
+      kind: arg
+      flag: "--insecure"
+      style: flag
+
+  - key: redact
+    type: bool
+    label: Redact secrets
+    help: Mask Authorization, Cookie, Set-Cookie, X-Api-Key in the report and artifacts.
+    default: false
+    group: Options
+    binding:
+      kind: arg
+      flag: "--redact"
+      style: flag
+
+  - key: repeat
+    type: int
+    label: Repeat
+    min: 1
+    max: 50
+    default: 1
+    help: Send the request N times and report min / median / max timing.
+    group: Options
+    binding:
+      kind: arg
+      flag: "--repeat"
+      style: space
+
+  - key: verbose
+    type: bool
+    label: Verbose
+    help: Print the request being sent to the log.
+    default: false
+    group: Options
+    binding:
+      kind: arg
+      flag: "--verbose"
+      style: flag
+
+outputs:
+  artifacts:
+    - "response.json"
+    - "response.txt"
+    - "response.bin"
+    - "request.json"
+  result: markdown

@@ -1,0 +1,203 @@
+schema: 1
+id: com.pyshell.logattackchecker
+name: Log Attack Checker
+version: 1
+description: Apache/Nginx access log security analyzer for WordPress sites
+icon: lucide:shield
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 1800
+
+inputs:
+  # ── Source ──────────────────────────────────────────────────────────────
+  - key: logs_dir
+    type: dir
+    label: Logs directory
+    help: Directory containing .log / .log.N files to analyse
+    required: true
+    default: logs
+    group: Source
+    binding:
+      kind: arg
+      flag: "--logs-dir"
+      style: space
+
+  - key: site
+    type: string
+    label: Site domain
+    help: e.g. example.com — substituted into the cURL commands of report.html; the IP is auto-resolved via DNS. Both appear in the terminal and report.html only, never in report.md / report.json
+    default: ""
+    group: Source
+    binding:
+      kind: arg
+      flag: "--site"
+      style: space
+
+  - key: whitelist
+    type: string
+    label: Whitelisted IPs
+    help: Comma- or space-separated IPs to exclude from analysis entirely, e.g. 1.2.3.4,5.6.7.8
+    default: ""
+    group: Source
+    binding:
+      kind: arg
+      flag: "--whitelist"
+      style: space
+
+  # ── Detection thresholds ────────────────────────────────────────────────
+  - key: bruteforce_threshold
+    type: int
+    label: Brute force threshold
+    help: 401 responses within the time window to flag brute force
+    min: 1
+    max: 1000
+    default: 5
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--bruteforce-threshold"
+      style: space
+
+  - key: wp_login_post_threshold
+    type: int
+    label: WP login POST threshold
+    help: POSTs to wp-login.php within the window to flag credential stuffing
+    min: 1
+    max: 1000
+    default: 10
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--wp-login-post-threshold"
+      style: space
+
+  - key: notfound_flood_threshold
+    type: int
+    label: 404 flood threshold
+    help: 404 responses within the window to flag a directory scanner
+    min: 1
+    max: 10000
+    default: 50
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--notfound-flood-threshold"
+      style: space
+
+  - key: wp_cron_flood_threshold
+    type: int
+    label: WP cron flood threshold
+    help: wp-cron.php hits within the window to flag a DoS attempt
+    min: 1
+    max: 10000
+    default: 20
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--wp-cron-flood-threshold"
+      style: space
+
+  - key: attack_chain_min_vectors
+    type: int
+    label: Attack chain min vectors
+    help: Distinct WP attack types from one IP to flag a coordinated attack
+    min: 1
+    max: 50
+    default: 3
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--attack-chain-min-vectors"
+      style: space
+
+  - key: time_window_minutes
+    type: int
+    label: Time window (minutes)
+    help: Sliding window used by all threshold detectors
+    min: 1
+    max: 1440
+    default: 5
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--time-window-minutes"
+      style: space
+
+  - key: rate_limit_threshold
+    type: int
+    label: Rate limit threshold
+    help: Total requests per window from one IP to flag rate limiting
+    min: 1
+    max: 100000
+    default: 100
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--rate-limit-threshold"
+      style: space
+
+  - key: large_response_bytes
+    type: int
+    label: Large response (bytes)
+    help: Response size threshold for exfiltration detection
+    min: 1024
+    max: 1000000000
+    default: 100000
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--large-response-bytes"
+      style: space
+
+  - key: attack_burst_factor
+    type: float
+    label: Attack burst factor
+    help: Multiplier over the hourly average for burst anomaly detection
+    min: 1.0
+    max: 1000.0
+    default: 10.0
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--attack-burst-factor"
+      style: space
+
+  # ── GeoIP ───────────────────────────────────────────────────────────────
+  - key: skip_geoip
+    type: bool
+    label: Skip GeoIP lookups
+    help: Disable country / proxy lookups (avoids any network access)
+    default: false
+    group: GeoIP
+    binding:
+      kind: arg
+      flag: "--skip-geoip"
+      style: flag
+
+  - key: geoip_limit
+    type: int
+    label: GeoIP IP limit
+    help: Max attacker IPs sent to the GeoIP API (ip-api.com, free, no key)
+    min: 1
+    max: 100
+    default: 20
+    group: GeoIP
+    visible_if:
+      op: ne
+      key: skip_geoip
+      value: true
+    binding:
+      kind: arg
+      flag: "--geoip-limit"
+      style: space
+
+outputs:
+  artifacts:
+    - "report.html"
+    - "report.md"
+    - "report.json"
+  result: markdown

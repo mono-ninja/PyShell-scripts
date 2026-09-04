@@ -1,0 +1,124 @@
+# Tech Stack — довідник EOL і вразливих діапазонів.
+#
+# Два розділи:
+#   eol       — дата завершення підтримки технології. Версія <= EOL-гілці →
+#               «застаріле». Поле `branch` — остання підтримувана гілка, `eol` —
+#               ISO-дата. Звіт показує дату бази (`updated`), бо довідник
+#               протухає: EOL-дати PHP/nginx/Node змінюються щоквартал.
+#   vuln      — вразливі діапазони JS-бібліотек (VERSION_RULES). `min_secure` —
+#               перша версія без перелічених CVE; `ranges` — опційні межі, коли
+#               перша версія без перелічених CVE; `ranges` — опційні межі, коли
+#               вразливість стосується лише частини гілок (напр. Bootstrap 3.x/4.x).
+#
+# `--online-eol` (endoflife.date) — опційне свіже джерело; цей файл — офлайн-база.
+
+updated: 2026-08-27
+
+eol:
+  - slug: php
+    branch: "8.1"
+    eol: 2025-12-31
+    note: PHP 8.1 EOL
+  - slug: php
+    branch: "7.4"
+    eol: 2022-11-28
+    note: PHP 7.4 EOL — unsupported
+  - slug: php
+    branch: "7.3"
+    eol: 2021-12-06
+  - slug: php
+    branch: "7.2"
+    eol: 2020-11-30
+  - slug: php
+    branch: "5.6"
+    eol: 2018-12-31
+  - slug: nodejs
+    branch: "16"
+    eol: 2023-09-11
+    note: Node.js 16 EOL
+  - slug: nodejs
+    branch: "14"
+    eol: 2023-04-30
+  - slug: nodejs
+    branch: "12"
+    eol: 2022-04-30
+  - slug: nginx
+    branch: "1.18"
+    eol: 2021-05-01
+    note: nginx 1.18 — stable branch without updates
+  - slug: nginx
+    branch: "1.16"
+    eol: 2020-04-01
+  - slug: drupal
+    branch: "9"
+    eol: 2023-11-01
+    note: Drupal 9 EOL
+  - slug: drupal
+    branch: "8"
+    eol: 2021-11-02
+  - slug: drupal
+    branch: "7"
+    eol: 2025-01-05
+  - slug: joomla
+    branch: "3"
+    eol: 2023-08-17
+  - slug: wordpress
+    branch: "5"
+    eol: null
+    note: WP 5.x — an update is available
+  - slug: magento
+    branch: "1"
+    eol: 2020-06-30
+  - slug: rubyonrails
+    branch: "6"
+    eol: 2023-10-01
+  - slug: python
+    branch: "3.7"
+    eol: 2023-06-27
+  - slug: python
+    branch: "3.8"
+    eol: 2024-10-07
+  - slug: python
+    branch: "3.9"
+    eol: 2025-10-05
+
+vuln:
+  - slug: jquery
+    min_secure: "3.5.0"
+    cves: [CVE-2020-11022, CVE-2020-11023]
+    regex: 'jquery[._-](\d+)\.(\d+)\.(\d+)'
+  - slug: jquery-ui
+    min_secure: "1.13.0"
+    cves: [CVE-2022-31160]
+    regex: 'jquery-ui[._-](\d+)\.(\d+)\.(\d+)'
+  - slug: angularjs
+    min_secure: "1.8.0"
+    cves: [CVE-2020-7676]
+    regex: 'angular[._-](\d+)\.(\d+)\.(\d+)'
+  - slug: lodash
+    min_secure: "4.17.21"
+    cves: [CVE-2021-23337, CVE-2020-8203]
+    regex: 'lodash[._-](\d+)\.(\d+)\.(\d+)'
+  - slug: moment
+    min_secure: "2.29.4"
+    cves: [CVE-2022-31129]
+    regex: 'moment[._-](\d+)\.(\d+)\.(\d+)'
+  - slug: axios
+    min_secure: "1.6.0"
+    cves: [CVE-2023-45857, CVE-2024-39338]
+    regex: 'axios[._-](\d+)\.(\d+)\.(\d+)'
+  - slug: dompurify
+    min_secure: "3.1.3"
+    cves: [CVE-2024-47875, CVE-2024-48910]
+    regex: 'dompurify[._-](\d+)\.(\d+)\.(\d+)'
+  - slug: dojo
+    min_secure: "1.16.0"
+    cves: [CVE-2020-27220]
+    regex: 'dojo[._-](\d+)\.(\d+)\.(\d+)'
+  - slug: bootstrap
+    min_secure: "4.3.1"
+    cves: [CVE-2018-14041, CVE-2019-8331]
+    regex: 'bootstrap[._-](\d+)\.(\d+)\.(\d+)'
+    ranges:
+      - {major: 3, min_secure: "3.4.1"}
+      - {major: 4, min_secure: "4.3.1"}

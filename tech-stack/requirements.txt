@@ -1,0 +1,20 @@
+# Tech Stack — site stack fingerprinting
+# Python 3.11+ dependencies
+#
+# PyShell installs these via `uv pip install -r requirements.txt`.
+
+requests>=2.28
+pyyaml>=6.0
+
+# Для --render: js_globals (найнадійніше джерело версії) і реальні мережеві
+# запити через headless Chromium.
+#
+# Ціна — ~134 МБ у venv скрипта: це сам пакет із вбудованим Node-драйвером,
+# а не браузер. Браузери Playwright живуть НЕ у venv, а в спільному кеші
+# ~/Library/Caches/ms-playwright (macOS), спільному для всіх venv на машині.
+# Тому якщо на машині вже стояв будь-який проєкт із Playwright, `playwright
+# install chromium` вдруге не потрібен — браузер уже завантажений.
+#
+# Якщо браузера немає — Tech Stack не падає, а пише в попередження команду
+# `playwright install chromium` і продовжує без рендеру (див. render.py).
+# playwright>=1.40

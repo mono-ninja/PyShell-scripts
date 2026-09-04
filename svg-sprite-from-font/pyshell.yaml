@@ -1,0 +1,116 @@
+schema: 1
+id: com.pyshell.svgspritefromfont
+name: SVG Sprite — From Font
+version: 1
+description: Convert a legacy icon font (FontAwesome 4, IcoMoon, …) into a symbol sprite
+icon: lucide:layers
+category: Icons
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 180
+
+inputs:
+  - key: i_have_the_rights
+    type: bool
+    label: I have redistribution rights for this font's outlines
+    help: Required before any output is written — see B0. Unchecked by default on purpose.
+    default: false
+    group: License
+    binding: {kind: arg, flag: "--i-have-the-rights", style: flag}
+
+  - key: font_file
+    type: file
+    label: Font file
+    extensions: [ttf, otf, woff, woff2, svg]
+    required: true
+    group: Input
+    binding: {kind: arg, flag: "--font", style: space}
+
+  - key: css_file
+    type: file
+    label: Accompanying CSS (optional)
+    extensions: [css]
+    group: Input
+    binding: {kind: arg, flag: "--css", style: space}
+
+  - key: names_json
+    type: file
+    label: Existing names.json (optional, re-run)
+    extensions: [json]
+    group: Naming
+    binding: {kind: arg, flag: "--names", style: space}
+
+  - key: flatten_transform
+    type: bool
+    label: Flatten transform into path data
+    default: true
+    group: Geometry
+    binding: {kind: arg, flag: "--flatten", style: flag}
+
+  - key: fit_mode
+    type: choice
+    label: Fit
+    options:
+      - {value: advance, label: "Advance width (faithful)"}
+      - {value: bbox, label: "Bounding box (visually normalized)"}
+    default: advance
+    group: Geometry
+    binding: {kind: arg, flag: "--fit", style: space}
+
+  - key: fit_padding
+    type: int
+    label: Padding
+    min: 0
+    max: 200
+    default: 0
+    visible_if: {op: eq, key: fit_mode, value: bbox}
+    group: Geometry
+    binding: {kind: arg, flag: "--fit-padding", style: space}
+
+  - key: scan_usage
+    type: bool
+    label: Restrict to icons found in the theme
+    default: false
+    group: Subsetting
+    binding: {kind: arg, flag: "--scan-usage", style: flag}
+
+  - key: scan_path
+    type: dir
+    label: Theme folder to scan
+    visible_if: {op: truthy, key: scan_usage}
+    group: Subsetting
+    binding: {kind: arg, flag: "--scan", style: space}
+
+  - key: out_dir
+    type: dir
+    label: Output folder
+    required: true
+    help: Where sprite.svg and friends are written — usually inside your project
+    group: Output
+    binding: {kind: arg, flag: "--out", style: space}
+
+  - key: emit_wordpress
+    type: bool
+    label: Generate WordPress include (sprite.php)
+    default: true
+    group: Output
+    binding: {kind: arg, flag: "--wordpress", style: flag}
+
+  - key: emit_migration_css
+    type: bool
+    label: Generate migration.css
+    default: true
+    group: Output
+    binding: {kind: arg, flag: "--migration-css", style: flag}
+
+outputs:
+  artifacts:
+    - "sprite.svg"
+    - "catalog.html"
+    - "names.json"
+    - "sprite.php"
+    - "migration.css"
+  result: table

@@ -1,0 +1,422 @@
+schema: 1
+id: com.pyshell.curl
+name: cURL
+version: 1
+description: Build and run a curl command from a form — wraps the system curl binary
+icon: lucide:terminal
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  # No app-level timeout: the script derives its own deadline from
+  # Max time x (Retries + 1) + retry delays, which the app cannot know.
+
+inputs:
+  # ─────────────────────── Request ───────────────────────
+  - key: url
+    type: url
+    label: URL
+    help: Target URL including scheme (https://…)
+    required: true
+    group: Request
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: method
+    type: choice
+    label: Method
+    help: HEAD is sent as -I, so it does not wait for a body that never comes.
+    group: Request
+    default: GET
+    options:
+      - {value: GET, label: GET}
+      - {value: POST, label: POST}
+      - {value: PUT, label: PUT}
+      - {value: PATCH, label: PATCH}
+      - {value: DELETE, label: DELETE}
+      - {value: HEAD, label: HEAD}
+      - {value: OPTIONS, label: OPTIONS}
+    binding: {kind: arg, flag: "--method", style: space}
+
+  - key: data
+    type: multiline
+    label: Request body
+    help: Written to a temp file; passed to curl with @file. One block per request.
+    group: Request
+    visible_if: {op: ne, key: method, value: GET}
+    binding: {kind: temp_file, flag: "--data"}
+
+  - key: data_mode
+    type: choice
+    label: Body encoding
+    default: raw
+    group: Request
+    visible_if: {op: ne, key: method, value: GET}
+    options:
+      - {value: raw, label: Raw (--data)}
+      - {value: urlencoded, label: URL-encoded (--data-urlencode)}
+      - {value: binary, label: Binary (--data-binary)}
+      - {value: json, label: JSON (--json)}
+    binding: {kind: arg, flag: "--data-mode", style: space}
+
+  - key: headers
+    type: multiline
+    label: Headers
+    help: 'One header per line, "Key: Value"'
+    group: Request
+    binding: {kind: temp_file, flag: "--headers"}
+
+  - key: user_agent
+    type: string
+    label: User-Agent
+    group: Request
+    binding: {kind: arg, flag: "--user-agent", style: space}
+
+  - key: referer
+    type: string
+    label: Referer
+    group: Request
+    binding: {kind: arg, flag: "--referer", style: space}
+
+  - key: include_headers
+    type: bool
+    label: Include headers in output (-i)
+    default: false
+    group: Request
+    binding: {kind: arg, flag: "--include", style: flag}
+
+  - key: head_only
+    type: bool
+    label: Fetch headers only (-I)
+    default: false
+    group: Request
+    binding: {kind: arg, flag: "--head", style: flag}
+
+  - key: fail
+    type: bool
+    label: Fail on HTTP error (-f)
+    default: false
+    group: Request
+    binding: {kind: arg, flag: "--fail", style: flag}
+
+  # ─────────────────────── Connection ───────────────────────
+  - key: connect_timeout
+    type: int
+    label: Connect timeout (s)
+    min: 1
+    max: 600
+    group: Connection
+    binding: {kind: arg, flag: "--connect-timeout", style: space}
+
+  - key: max_time
+    type: int
+    label: Max time (s)
+    min: 1
+    max: 3600
+    group: Connection
+    binding: {kind: arg, flag: "--max-time", style: space}
+
+  - key: follow_redirects
+    type: bool
+    label: Follow redirects (-L)
+    default: false
+    group: Connection
+    binding: {kind: arg, flag: "--location", style: flag}
+
+  - key: max_redirs
+    type: int
+    label: Max redirects
+    min: 0
+    max: 50
+    default: 10
+    group: Connection
+    visible_if: {op: truthy, key: follow_redirects}
+    binding: {kind: arg, flag: "--max-redirs", style: space}
+
+  - key: retry
+    type: int
+    label: Retries
+    min: 0
+    max: 30
+    group: Connection
+    binding: {kind: arg, flag: "--retry", style: space}
+
+  - key: retry_delay
+    type: int
+    label: Retry delay (s)
+    min: 0
+    max: 120
+    default: 1
+    group: Connection
+    visible_if: {op: truthy, key: retry}
+    binding: {kind: arg, flag: "--retry-delay", style: space}
+
+  - key: compressed
+    type: bool
+    label: Request compression (--compressed)
+    default: false
+    group: Connection
+    binding: {kind: arg, flag: "--compressed", style: flag}
+
+  - key: http_version
+    type: choice
+    label: HTTP version
+    help: Mapped to --http1.1 / --http2 / --http3; HTTP/3 needs a curl built with it.
+    default: default
+    group: Connection
+    options:
+      - {value: default, label: Default}
+      - {value: "1.0", label: HTTP/1.0}
+      - {value: "1.1", label: HTTP/1.1}
+      - {value: "2", label: HTTP/2}
+      - {value: 2-prior-knowledge, label: HTTP/2 (prior knowledge)}
+      - {value: "3", label: HTTP/3}
+    binding: {kind: arg, flag: "--http-version", style: space}
+
+  - key: ipv4
+    type: bool
+    label: Force IPv4 (-4)
+    default: false
+    group: Connection
+    binding: {kind: arg, flag: "--ipv4", style: flag}
+
+  - key: ipv6
+    type: bool
+    label: Force IPv6 (-6)
+    default: false
+    group: Connection
+    binding: {kind: arg, flag: "--ipv6", style: flag}
+
+  - key: interface
+    type: string
+    label: Interface
+    help: Network interface or IP address to bind to
+    group: Connection
+    binding: {kind: arg, flag: "--interface", style: space}
+
+  # ─────────────────────── TLS ───────────────────────
+  - key: insecure
+    type: bool
+    label: Skip TLS verify (-k)
+    default: false
+    group: TLS
+    binding: {kind: arg, flag: "--insecure", style: flag}
+
+  - key: cert
+    type: file
+    label: Client certificate
+    group: TLS
+    extensions: [pem, crt, cer, der, p12, pfx]
+    binding: {kind: arg, flag: "--cert", style: space}
+
+  - key: cert_key
+    type: file
+    label: Private key
+    group: TLS
+    extensions: [pem, key]
+    visible_if: {op: truthy, key: cert}
+    binding: {kind: arg, flag: "--key", style: space}
+
+  - key: cacert
+    type: file
+    label: CA certificate
+    group: TLS
+    extensions: [pem, crt, cer, der]
+    binding: {kind: arg, flag: "--cacert", style: space}
+
+  - key: ciphers
+    type: string
+    label: Ciphers
+    group: TLS
+    binding: {kind: arg, flag: "--ciphers", style: space}
+
+  - key: tls_max
+    type: choice
+    label: TLS max version
+    default: default
+    group: TLS
+    options:
+      - {value: default, label: Default}
+      - {value: "1.0", label: TLS 1.0}
+      - {value: "1.1", label: TLS 1.1}
+      - {value: "1.2", label: TLS 1.2}
+      - {value: "1.3", label: TLS 1.3}
+    binding: {kind: arg, flag: "--tls-max", style: space}
+
+  # ─────────────────────── Auth ───────────────────────
+  - key: auth_method
+    type: choice
+    label: Auth method
+    default: none
+    group: Auth
+    options:
+      - {value: none, label: None}
+      - {value: basic, label: Basic}
+      - {value: ntlm, label: NTLM}
+      - {value: negotiate, label: Negotiate}
+      - {value: anyauth, label: Any auth}
+    binding: {kind: arg, flag: "--auth-method", style: space}
+
+  - key: auth_user
+    type: string
+    label: Username
+    group: Auth
+    visible_if: {op: ne, key: auth_method, value: none}
+    binding: {kind: arg, flag: "--auth-user", style: space}
+
+  - key: auth_password
+    type: secret
+    label: Password
+    group: Auth
+    visible_if: {op: ne, key: auth_method, value: none}
+    binding: {kind: env, name: AUTH_PASSWORD}
+
+  - key: bearer_token
+    type: secret
+    label: Bearer token
+    help: Sent as an Authorization header. Independent of the auth method above.
+    group: Auth
+    binding: {kind: env, name: BEARER_TOKEN}
+
+  # ─────────────────────── Proxy ───────────────────────
+  - key: proxy
+    type: string
+    label: Proxy
+    help: e.g. http://host:port or socks5://host:port
+    group: Proxy
+    binding: {kind: arg, flag: "--proxy", style: space}
+
+  - key: proxy_user
+    type: string
+    label: Proxy username
+    group: Proxy
+    visible_if: {op: truthy, key: proxy}
+    binding: {kind: arg, flag: "--proxy-user", style: space}
+
+  - key: proxy_password
+    type: secret
+    label: Proxy password
+    group: Proxy
+    visible_if: {op: truthy, key: proxy_user}
+    binding: {kind: env, name: PROXY_PASSWORD}
+
+  - key: noproxy
+    type: string
+    label: No-proxy hosts
+    group: Proxy
+    binding: {kind: arg, flag: "--noproxy", style: space}
+
+  # ─────────────────────── Cookies ───────────────────────
+  - key: cookie
+    type: string
+    label: Send cookies (-b)
+    group: Cookies
+    binding: {kind: arg, flag: "--cookie", style: space}
+
+  - key: cookie_jar
+    type: save_path
+    label: Save cookies to (-c)
+    default_name: cookies.txt
+    group: Cookies
+    binding: {kind: arg, flag: "--cookie-jar", style: space}
+
+  # ─────────────────────── Output ───────────────────────
+  - key: silent
+    type: bool
+    label: Silent (-s)
+    help: Suppress curl progress meter. Recommended under PyShell.
+    default: true
+    group: Output
+    binding: {kind: arg, flag: "--silent", style: flag}
+
+  - key: show_error
+    type: bool
+    label: Show errors (-S)
+    default: true
+    group: Output
+    binding: {kind: arg, flag: "--show-error", style: flag}
+
+  - key: verbose
+    type: bool
+    label: Verbose (-v)
+    default: false
+    group: Output
+    binding: {kind: arg, flag: "--verbose", style: flag}
+
+  - key: write_out
+    type: string
+    label: Write-out format (-w)
+    group: Output
+    binding: {kind: arg, flag: "--write-out", style: space}
+
+  - key: dump_header
+    type: save_path
+    label: Dump headers to (--dump-header)
+    default_name: curl-headers.txt
+    group: Output
+    binding: {kind: arg, flag: "--dump-header", style: space}
+
+  - key: save_body
+    type: bool
+    label: Save body as artifact
+    default: true
+    group: Output
+    binding: {kind: arg, flag: "--save-body", style: flag}
+
+  # ─────────────────────── Advanced ───────────────────────
+  - key: resolve
+    type: multiline
+    label: Resolve
+    help: One per line, e.g. example.com:443:1.2.3.4
+    group: Advanced
+    binding: {kind: temp_file, flag: "--resolve"}
+
+  - key: connect_to
+    type: multiline
+    label: Connect-to
+    help: One per line, e.g. example.com:443:internal.host:443
+    group: Advanced
+    binding: {kind: temp_file, flag: "--connect-to"}
+
+  - key: dns_servers
+    type: string
+    label: DNS servers
+    help: Needs a libcurl built with c-ares. The macOS system curl is not; the
+      field is then skipped with a note. e.g. 1.1.1.1,8.8.8.8
+    group: Advanced
+    binding: {kind: arg, flag: "--dns-servers", style: space}
+
+  - key: doh_url
+    type: url
+    label: DNS-over-HTTPS URL
+    group: Advanced
+    binding: {kind: arg, flag: "--doh-url", style: space}
+
+  - key: unix_socket
+    type: string
+    label: Unix socket
+    group: Advanced
+    binding: {kind: arg, flag: "--unix-socket", style: space}
+
+  - key: no_keepalive
+    type: bool
+    label: Disable keep-alive
+    default: false
+    group: Advanced
+    binding: {kind: arg, flag: "--no-keepalive", style: flag}
+
+  - key: keepalive_time
+    type: int
+    label: Keepalive interval (s)
+    min: 1
+    max: 600
+    group: Advanced
+    visible_if: {op: eq, key: no_keepalive, value: false}
+    binding: {kind: arg, flag: "--keepalive-time", style: space}
+
+outputs:
+  artifacts:
+    - "response.txt"
+    - "command.sh"
+    - "headers.txt"
+  result: markdown

@@ -1,0 +1,97 @@
+schema: 1
+id: com.pyshell.ipsearch
+name: IP Search
+version: 1
+description: Resolve a site's IP address through every method at once (resolver, DoH, DoT, live TCP/HTTP, dig/host/nslookup) and cross-check — plus WHOIS, RDAP, DNS records, CDN/WAF detection, traceroute
+icon: lucide:globe
+category: Recon
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 180
+
+inputs:
+  - key: url
+    type: url
+    label: Site URL
+    help: Full address (with http(s)://) or just a domain, e.g. example.com
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: timeout
+    type: int
+    label: Timeout (sec)
+    help: Maximum wait time for a single operation
+    min: 1
+    max: 60
+    default: 10
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: ipv6
+    type: choice
+    label: IPv6 (AAAA)
+    help: Whether to allow IPv6 addresses
+    options:
+      - {value: "yes", label: Enabled}
+      - {value: "no", label: Disabled}
+    default: "yes"
+    group: Options
+    binding: {kind: arg, flag: "--ipv6", style: space}
+
+  - key: methods
+    type: multi_choice
+    label: Resolution methods
+    help: Which methods to use (all by default)
+    options:
+      - {value: system, label: "System resolver (getaddrinfo / gethostbyname)"}
+      - {value: dnspython, label: "dnspython (library + raw UDP to 8.8.8.8 and 1.1.1.1)"}
+      - {value: doh, label: "DNS-over-HTTPS (Google, Cloudflare, DNS.SB)"}
+      - {value: dot, label: "DNS-over-TLS (Google, Cloudflare)"}
+      - {value: connect, label: "Direct HTTP(S) connection (socket, http.client)"}
+      - {value: tools, label: "System utilities (dig, host, nslookup)"}
+      - {value: hosting, label: "Hosting (RDAP/WHOIS + PTR + SSH banner)"}
+      - {value: dnsrecs, label: "DNS records (NS, MX, TXT, SOA, CAA)"}
+      - {value: whois, label: "Domain WHOIS (registrar, dates, NS)"}
+      - {value: cdn, label: "CDN/WAF detection (HTTP headers + TLS)"}
+      - {value: traceroute, label: "Traceroute (network path)"}
+    default: [system, dnspython, doh, dot, connect, tools, hosting, dnsrecs, whois, cdn, traceroute]
+    group: Options
+    binding: {kind: arg, flag: "--method", style: repeat}
+
+  - key: ssh_banner
+    type: bool
+    label: SSH banner
+    help: Try to connect to port 22 and read the SSH banner (no authentication). Only works with the 'hosting' method.
+    default: false
+    group: Options
+    binding: {kind: arg, flag: "--ssh-banner", style: flag}
+
+  - key: ssh_port
+    type: int
+    label: SSH port
+    help: Port for the SSH banner (default 22)
+    min: 1
+    max: 65535
+    default: 22
+    group: Options
+    binding: {kind: arg, flag: "--ssh-port", style: space}
+
+  - key: output_dir
+    type: string
+    label: Artifacts folder
+    help: Where to write results.csv/json etc. (defaults to the PyShell folder or the current one)
+    required: false
+    group: Options
+    binding: {kind: arg, flag: "--output-dir", style: space}
+
+outputs:
+  artifacts:
+    - "results.csv"
+    - "results.json"
+    - "dns_records.csv"
+    - "traceroute.csv"
+  result: table

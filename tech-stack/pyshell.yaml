@@ -1,0 +1,206 @@
+schema: 1
+id: com.pyshell.techstack
+name: Tech Stack
+version: 1
+description: Fingerprint a site's tech stack — technologies, versions, outdated libraries, and a full third-party inventory
+icon: lucide:cpu
+category: Recon
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 240
+
+inputs:
+  # ── Target ──
+  - key: url
+    type: url
+    label: Target URL
+    help: Full address with https://. Only this host is checked; no subdomain crawling.
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: pages
+    type: int
+    label: Pages to sample
+    help: >-
+      How many pages to fetch (homepage + internal ones). The checkout stack ≠ the
+      homepage stack, but more pages means more requests and more traces in the
+      target's logs.
+    min: 1
+    max: 10
+    default: 3
+    group: Target
+    binding: {kind: arg, flag: "--pages", style: space}
+
+  - key: extra_urls
+    type: multiline
+    label: Extra URLs
+    help: >-
+      Custom URLs to sample, one per line. For when the operator knows better than
+      the heuristics (/shop/checkout, /wp-login.php). Added to the selected pages.
+    group: Target
+    binding:
+      kind: temp_file
+      flag: "--extra-urls"
+
+  - key: user_agent
+    type: string
+    label: User-Agent
+    help: Custom User-Agent. Empty — "Chrome-like" rotation (see fetch.py).
+    default: ""
+    max_len: 300
+    group: Target
+    binding: {kind: arg, flag: "--user-agent", style: space}
+
+  # ── Detection ──
+  - key: categories
+    type: multi_choice
+    label: Categories
+    help: Which technology categories to detect. Empty — all of them.
+    options:
+      - {value: server,       label: "Web server"}
+      - {value: language,     label: "Language / runtime"}
+      - {value: cms,          label: "CMS"}
+      - {value: ecommerce,    label: "E-commerce"}
+      - {value: js-framework, label: "JS framework"}
+      - {value: js-library,   label: "JS library"}
+      - {value: ui,           label: "UI kit"}
+      - {value: analytics,    label: "Analytics"}
+      - {value: advertising,  label: "Advertising"}
+      - {value: cdn,          label: "CDN"}
+      - {value: hosting,      label: "Hosting"}
+      - {value: monitoring,   label: "Monitoring"}
+      - {value: auth,         label: "Auth"}
+      - {value: payment,      label: "Payments"}
+      - {value: font,         label: "Fonts"}
+      - {value: build,        label: "Build tool"}
+      - {value: ssr,          label: "SSR / meta-framework"}
+      - {value: database,     label: "DB / cache (from headers)"}
+    group: Detection
+    binding:
+      kind: arg
+      flag: "--category"
+      style: repeat
+
+  - key: min_confidence
+    type: int
+    label: Min confidence (%)
+    help: >-
+      Threshold for showing a technology. One weak signal (30%) doesn't pass; two
+      weak ones give ~51% and make it into the report.
+    min: 0
+    max: 100
+    default: 50
+    group: Detection
+    binding: {kind: arg, flag: "--min-confidence", style: space}
+
+  - key: detect_versions
+    type: bool
+    label: Detect versions
+    help: >-
+      Extract the version from 9 sources (header, meta generator, file name, etc.).
+      Nine out of ten technologies don't report a version — that's normal.
+    default: true
+    group: Detection
+    binding: {kind: arg, flag: "--versions", style: flag}
+
+  - key: probe_known_paths
+    type: bool
+    label: Probe public files
+    help: >-
+      Request /composer.json, /CHANGELOG.txt, /readme.html (3 probes) for the
+      version. Off by default: in the target's logs this looks like a scanner.
+    default: false
+    group: Detection
+    visible_if: {op: truthy, key: detect_versions}
+    binding: {kind: arg, flag: "--probe-known-paths", style: flag}
+
+  - key: render_js
+    type: bool
+    label: JS rendering (Playwright)
+    help: >-
+      Headless Chromium: js_globals (jQuery.fn.jquery, Vue.version) and real
+      network requests. Yields +20% rows and the most reliable version source,
+      but pulls ~400 MB and adds 5–15 s/page. Without a browser — graceful
+      degradation.
+    default: false
+    group: Detection
+    binding: {kind: arg, flag: "--render", style: flag}
+
+  # ── Output ──
+  - key: third_party
+    type: bool
+    label: Third-party inventory
+    help: Full inventory of external domains, grouped by purpose.
+    default: true
+    group: Output
+    binding: {kind: arg, flag: "--third-party", style: flag}
+
+  - key: check_advisories
+    type: bool
+    label: Check EOL / vulnerabilities
+    help: Match versions against advisories.yaml (EOL dates, vulnerable JS ranges).
+    default: true
+    group: Output
+    binding: {kind: arg, flag: "--advisories", style: flag}
+
+  - key: online_eol
+    type: bool
+    label: Online EOL (endoflife.date)
+    help: >-
+      Query endoflife.date for fresh EOL dates. An external request — enable it
+      deliberately.
+    default: false
+    group: Output
+    visible_if: {op: truthy, key: check_advisories}
+    binding: {kind: arg, flag: "--online-eol", style: flag}
+
+  - key: baseline
+    type: file
+    label: Baseline (stack.json)
+    help: >-
+      A previous stack.json for the diff: "a GTM we never installed has appeared".
+      Without the file, diff.md is not created.
+    extensions: [json]
+    group: Output
+    binding: {kind: arg, flag: "--baseline", style: space}
+
+  # ── Execution ──
+  - key: timeout
+    type: int
+    label: HTTP timeout (s)
+    min: 5
+    max: 60
+    default: 15
+    group: Execution
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: delay
+    type: float
+    label: Delay between requests (s)
+    help: Polite pause between pages. 0 = no pause.
+    min: 0
+    max: 5
+    default: 0.5
+    group: Execution
+    binding: {kind: arg, flag: "--delay", style: space}
+
+  - key: verbose
+    type: bool
+    label: Verbose log
+    help: Print per-stage statuses to LogView.
+    default: false
+    group: Execution
+    binding: {kind: arg, flag: "--verbose", style: flag}
+
+outputs:
+  artifacts:
+    - "techstack-report.md"
+    - "stack.json"
+    - "technologies.csv"
+    - "third-party.csv"
+    - "diff.md"
+  result: markdown

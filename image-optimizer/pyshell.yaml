@@ -1,0 +1,176 @@
+schema: 1
+id: com.pyshell.imageoptimizer
+name: Image Optimizer
+version: 1
+description: Shrink JPEG/PNG/WebP file size — recompress and strip metadata without changing format
+icon: lucide:sliders
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  # --- Source: same three-mode shape as image-converter ---
+  - key: input_mode
+    type: choice
+    label: Source
+    help: Single image, multiple selected files, or a folder
+    default: single
+    group: Input
+    options:
+      - {value: single, label: Single image}
+      - {value: multiple, label: Multiple images}
+      - {value: folder, label: Folder}
+    binding: {kind: arg, flag: "--mode", style: space}
+
+  - key: single_image
+    type: file
+    label: Image
+    help: File to optimize
+    extensions: [png, jpg, jpeg, webp, gif, tif, tiff, bmp]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: single
+    group: Input
+    binding: {kind: arg, flag: "--single-image", style: space}
+
+  - key: multiple_images
+    type: files
+    label: Images
+    help: Files to optimize (you can select several)
+    extensions: [png, jpg, jpeg, webp, gif, tif, tiff, bmp]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: multiple
+    group: Input
+    binding: {kind: arg, flag: "--input-file", style: repeat}
+
+  - key: input_folder
+    type: dir
+    label: Image folder
+    help: All images in this folder will be optimized (unsupported formats are noted as skipped)
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--input-folder", style: space}
+
+  - key: recursive
+    type: bool
+    label: Recursive (with subfolders)
+    help: Walk the folder along with its subfolders, preserving the structure in the output
+    default: false
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--recursive", style: flag}
+
+  # --- Optimize settings ---
+  - key: jpeg_mode
+    type: choice
+    label: JPEG mode
+    help: Lossless re-Huffman only (safest), or re-encode at a target quality
+    default: lossless
+    group: Optimize
+    options:
+      - {value: lossless, label: "Lossless (mozjpeg recompression only — safest)"}
+      - {value: lossy, label: "Lossy (re-encode at target quality — smaller, real tradeoff)"}
+    binding: {kind: arg, flag: "--jpeg-mode", style: space}
+
+  - key: jpeg_quality
+    type: int
+    label: JPEG quality (lossy mode)
+    min: 1
+    max: 100
+    default: 82
+    visible_if:
+      op: eq
+      key: jpeg_mode
+      value: lossy
+    group: Optimize
+    binding: {kind: arg, flag: "--jpeg-quality", style: space}
+
+  - key: allow_lossy_png
+    type: bool
+    label: Allow PNG color quantization
+    help: Reduce to a color palette (max below) when the image has more colors — big savings, real quality tradeoff
+    default: false
+    group: Optimize
+    binding: {kind: arg, flag: "--allow-lossy-png", style: flag}
+
+  - key: png_max_colors
+    type: int
+    label: PNG max colors (if quantizing)
+    min: 2
+    max: 256
+    default: 256
+    visible_if:
+      op: eq
+      key: allow_lossy_png
+      value: true
+    group: Optimize
+    binding: {kind: arg, flag: "--png-max-colors", style: space}
+
+  - key: webp_quality
+    type: int
+    label: WebP quality (lossy source only)
+    help: Lossless WebP sources are re-saved lossless — never silently converted to lossy
+    min: 1
+    max: 100
+    default: 80
+    group: Optimize
+    binding: {kind: arg, flag: "--webp-quality", style: space}
+
+  - key: strip_metadata
+    type: bool
+    label: Strip metadata (EXIF/GPS/XMP/text chunks)
+    help: A lot of surprising file size lives here — phone-photo EXIF, embedded thumbnails
+    default: true
+    group: Optimize
+    binding: {kind: arg, flag: "--strip-metadata", style: flag}
+
+  - key: keep_icc_profile
+    type: bool
+    label: Keep color profile (ICC)
+    help: Usually skippable for web delivery; keep for print/photography workflows
+    default: false
+    group: Optimize
+    binding: {kind: arg, flag: "--keep-icc-profile", style: flag}
+
+  - key: skip_unsupported
+    type: bool
+    label: Skip unsupported formats instead of failing
+    help: GIF/TIFF/BMP are reported as skipped rows, not errors (GIF needs frame-diffing, out of scope for v1)
+    default: true
+    group: Optimize
+    binding: {kind: arg, flag: "--skip-unsupported", style: flag}
+
+  # --- Output: same shape as image-converter ---
+  - key: output_folder
+    type: dir
+    label: Output folder
+    help: Where to save the optimized copies — the originals are never touched
+    required: true
+    group: Output
+    binding: {kind: arg, flag: "--output-folder", style: space}
+
+  - key: overwrite
+    type: bool
+    label: Overwrite existing
+    help: When off — existing files are skipped
+    default: false
+    group: Output
+    binding: {kind: arg, flag: "--overwrite", style: flag}
+
+outputs:
+  artifacts:
+    - "optimization_report.csv"
+  result: table

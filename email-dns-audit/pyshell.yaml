@@ -1,0 +1,68 @@
+schema: 1
+id: com.pyshell.emaildnsaudit
+name: Email DNS Audit
+version: 1
+description: Check SPF, DMARC, DKIM and MX records for a domain and grade email-spoofing protection
+icon: lucide:mail
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 60
+
+inputs:
+  - key: domain
+    type: string
+    label: Domain
+    help: "Bare domain, no scheme — e.g. example.com"
+    pattern: "^[a-zA-Z0-9.-]+$"
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--domain", style: space}
+
+  - key: dkim_selectors
+    type: multiline
+    label: DKIM selectors to try
+    help: One per line. DKIM selectors aren't discoverable via DNS — add your provider's if it's not in the default list
+    default: "google\nselector1\nselector2\ndefault\ndkim\nk1\nmail\nsmtp\ns1\ns2\namazonses\nmx"
+    group: Target
+    binding: {kind: arg, flag: "--dkim-selectors", style: space}
+
+  - key: nameserver
+    type: string
+    label: "Custom resolver (optional)"
+    help: "e.g. 1.1.1.1 — leave blank to use the system resolver"
+    group: Target
+    binding: {kind: arg, flag: "--nameserver", style: space}
+
+  - key: check_mta_sts
+    type: bool
+    label: "Check MTA-STS (fetches a policy URL, not DNS-only)"
+    default: false
+    group: Advanced
+    binding: {kind: arg, flag: "--check-mta-sts", style: flag}
+
+  - key: check_tlsrpt
+    type: bool
+    label: Check TLS-RPT
+    help: "_smtp._tls TXT — delivery TLS failure reporting"
+    default: false
+    group: Advanced
+    binding: {kind: arg, flag: "--check-tlsrpt", style: flag}
+
+  - key: check_bimi
+    type: bool
+    label: Check BIMI
+    help: "default._bimi TXT — brand logo in mail clients (needs an enforced DMARC policy)"
+    default: false
+    group: Advanced
+    binding: {kind: arg, flag: "--check-bimi", style: flag}
+
+outputs:
+  artifacts:
+    - "dns_records_raw.json"
+    - "findings.json"
+    - "report.md"
+  result: markdown

@@ -1,0 +1,96 @@
+schema: 1
+id: com.pyshell.svgspritebuild
+name: SVG Sprite — Build
+version: 1
+description: Bundle a folder of SVG icons into one symbol sprite
+icon: lucide:package
+category: Icons
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: src_dir
+    type: dir
+    label: Icons folder
+    help: Folder of .svg files to bundle
+    required: true
+    group: Source
+    binding: {kind: arg, flag: "--src", style: space}
+
+  - key: prefix
+    type: string
+    label: Symbol ID prefix
+    help: Prepended to every slugified symbol id (e.g. "icon-" → icon-arrow-left)
+    default: "icon-"
+    pattern: "^[a-z0-9-]*$"
+    group: Naming
+    binding: {kind: arg, flag: "--prefix", style: space}
+
+  - key: current_color
+    type: bool
+    label: Substitute currentColor
+    help: Only applied when a symbol uses exactly one non-none fill/stroke colour; duotone icons are left untouched
+    default: false
+    group: Normalize
+    binding: {kind: arg, flag: "--current-color", style: flag}
+
+  - key: a11y_titles
+    type: bool
+    label: Add <title> from filename
+    help: Insert a <title> element (from the slug) as the first child of each <symbol>
+    default: false
+    group: Normalize
+    binding: {kind: arg, flag: "--a11y-titles", style: flag}
+
+  - key: precision
+    type: int
+    label: Path precision (decimals)
+    help: Path/points numerics are rounded to this many decimals
+    min: 0
+    max: 6
+    default: 3
+    group: Optimize
+    binding: {kind: arg, flag: "--precision", style: space}
+
+  - key: svgo_pass
+    type: bool
+    label: Run npx svgo pre-pass
+    help: Optimize sources with SVGO before bundling. Needs Node/npx installed; on any failure the run continues with the originals
+    default: false
+    group: Optimize
+    binding: {kind: arg, flag: "--svgo", style: flag}
+
+  - key: out_dir
+    type: dir
+    label: Output folder
+    required: true
+    help: Where sprite.svg and friends are written — usually inside your project
+    group: Output
+    binding: {kind: arg, flag: "--out", style: space}
+
+  - key: emit_catalog
+    type: bool
+    label: Generate catalog.html
+    help: A self-contained preview page with every symbol rendered inline
+    default: true
+    group: Output
+    binding: {kind: arg, flag: "--catalog", style: flag}
+
+  - key: emit_wordpress
+    type: bool
+    label: Generate WordPress include (sprite.php)
+    help: The sprite defs as a PHP file to include once in a theme
+    default: false
+    group: Output
+    binding: {kind: arg, flag: "--wordpress", style: flag}
+
+outputs:
+  artifacts:
+    - "sprite.svg"
+    - "catalog.html"
+    - "sprite.php"
+  result: table
