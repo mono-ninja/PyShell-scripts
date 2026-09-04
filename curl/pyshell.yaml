@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.curl
 name: cURL
-version: 2
+version: 1
 description: Build and run a curl command from a form — wraps the system curl binary
 icon: lucide:terminal
 category: Network
