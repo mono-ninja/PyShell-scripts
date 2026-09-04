@@ -1,0 +1,69 @@
+schema: 1
+id: com.pyshell.dnspropagation
+name: DNS Propagation
+version: 1
+description: Check one DNS record across ~20 public resolvers at once — who serves the new value, who still the old one, with TTLs and an agreement summary
+icon: lucide:refresh-cw
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: name
+    type: string
+    label: Record name
+    help: "The record being checked, e.g. example.com or www.example.com — the name you just changed"
+    required: true
+    group: Query
+    binding: {kind: arg, flag: "--name", style: space}
+
+  - key: record_type
+    type: choice
+    label: Record type
+    options:
+      - {value: A, label: A — IPv4 address}
+      - {value: AAAA, label: AAAA — IPv6 address}
+      - {value: CNAME, label: CNAME — alias}
+      - {value: MX, label: MX — mail exchanger}
+      - {value: TXT, label: TXT — text (SPF, DKIM, verification…)}
+      - {value: NS, label: NS — nameserver}
+      - {value: SOA, label: SOA — start of authority}
+      - {value: CAA, label: CAA — certificate issuing policy}
+    default: A
+    group: Query
+    binding: {kind: arg, flag: "--type", style: space}
+
+  - key: expected_value
+    type: string
+    label: "Expected (new) value (optional)"
+    help: "What you changed the record to — comma-separated for round-robin sets. Each resolver is then classified: serving the new value, or something else (the old one)"
+    group: Query
+    binding: {kind: arg, flag: "--expected", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-resolver timeout (s)"
+    min: 1
+    max: 30
+    default: 4
+    group: Query
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: workers
+    type: int
+    label: "Parallel queries"
+    min: 1
+    max: 30
+    default: 8
+    group: Query
+    binding: {kind: arg, flag: "--workers", style: space}
+
+outputs:
+  artifacts:
+    - "dns_propagation.json"
+    - "report.md"
+  result: markdown

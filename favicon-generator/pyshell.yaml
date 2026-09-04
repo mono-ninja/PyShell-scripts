@@ -1,0 +1,67 @@
+schema: 1
+id: com.pyshell.favicongenerator
+name: Favicon Generator
+version: 1
+description: Generate the complete favicon set from one image — multi-size ICO, classic PNGs, apple-touch-icon, PWA icons, webmanifest and the ready-to-paste head snippet
+icon: lucide:star
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 60
+
+inputs:
+  - key: source_image
+    type: file
+    label: Source image
+    help: One image that becomes everything — square and ≥512px recommended (smaller sources are upscaled with a warning)
+    extensions: [png, jpg, jpeg, webp, gif, bmp, tif, tiff]
+    required: true
+    group: Source
+    binding: {kind: arg, flag: "--source-image", style: space}
+
+  - key: name
+    type: string
+    label: "App name (optional)"
+    help: Written into site.webmanifest as name/short_name — a manifest without a name fails PWA installability checks, so fill it before shipping
+    group: Content
+    binding: {kind: arg, flag: "--name", style: space}
+
+  - key: background
+    type: string
+    label: "Background"
+    help: "'transparent' (default) or a #rrggbb color — used for the letterbox of non-square sources. apple-touch-icon.png is always opaque (white when this is transparent, because iOS composites onto black)"
+    default: transparent
+    group: Content
+    binding: {kind: arg, flag: "--background", style: space}
+
+  - key: padding
+    type: int
+    label: "Padding (%)"
+    help: Percent of the canvas kept empty around the icon (0–25). iOS home-screen and adaptive icons benefit from 5–10
+    min: 0
+    max: 25
+    default: 0
+    group: Content
+    binding: {kind: arg, flag: "--padding", style: space}
+
+  - key: out_dir
+    type: dir
+    label: "Write the set here too (optional)"
+    help: Artifacts always go to the PyShell run folder; pick a real project folder here so the files survive after the run — default is next to the source image
+    group: Output
+    binding: {kind: arg, flag: "--out-dir", style: space}
+
+outputs:
+  artifacts:
+    - "favicon.ico"
+    - "favicon-16x16.png"
+    - "favicon-32x32.png"
+    - "apple-touch-icon.png"
+    - "icon-192.png"
+    - "icon-512.png"
+    - "site.webmanifest"
+    - "snippet.html"
+  result: markdown

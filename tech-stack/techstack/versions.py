@@ -117,6 +117,8 @@ def parse_public_file(path: str, body: str) -> Optional[VersionCandidate]:
             )
         return None
     # readme.html (WordPress), CHANGELOG.txt, CHANGELOG.md — grep for a version.
+    # "Версія" is deliberate input matching, not a report string: localized
+    # WordPress installs label the row in Ukrainian, and this is a detector.
     m = re.search(r"(?:Version|Версія)\s*[:\-]?\s*(\d+\.\d+(?:\.\d+)?)", body, re.I)
     if m:
         return VersionCandidate(

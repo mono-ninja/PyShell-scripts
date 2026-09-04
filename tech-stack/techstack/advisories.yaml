@@ -1,16 +1,18 @@
-# Tech Stack — довідник EOL і вразливих діапазонів.
+# Tech Stack — the EOL and vulnerable-range reference.
 #
-# Два розділи:
-#   eol       — дата завершення підтримки технології. Версія <= EOL-гілці →
-#               «застаріле». Поле `branch` — остання підтримувана гілка, `eol` —
-#               ISO-дата. Звіт показує дату бази (`updated`), бо довідник
-#               протухає: EOL-дати PHP/nginx/Node змінюються щоквартал.
-#   vuln      — вразливі діапазони JS-бібліотек (VERSION_RULES). `min_secure` —
-#               перша версія без перелічених CVE; `ranges` — опційні межі, коли
-#               перша версія без перелічених CVE; `ranges` — опційні межі, коли
-#               вразливість стосується лише частини гілок (напр. Bootstrap 3.x/4.x).
+# Two sections:
+#   eol       — the technology's end-of-support date. A version <= the EOL
+#               branch reads as "outdated". The `branch` field is the last
+#               supported branch; `eol` is an ISO date. The report shows
+#               the base date (`updated`) because the reference goes
+#               stale: PHP/nginx/Node EOL dates change quarterly.
+#   vuln      — vulnerable JS-library ranges (VERSION_RULES). `min_secure`
+#               is the first version without the listed CVEs; `ranges`
+#               are optional bounds for when the vulnerability applies
+#               only to some branches (e.g. Bootstrap 3.x/4.x).
 #
-# `--online-eol` (endoflife.date) — опційне свіже джерело; цей файл — офлайн-база.
+# `--online-eol` (endoflife.date) is an optional fresh source; this
+# file is the offline base.
 
 updated: 2026-08-27
 

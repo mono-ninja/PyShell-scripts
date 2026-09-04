@@ -5,14 +5,14 @@
 # All options can be overridden on the command line (see --help).
 
 # ============================================================================
-# ОСНОВНІ НАЛАШТУВАННЯ (Core Settings)
+# CORE SETTINGS
 # ============================================================================
 
-# Домен за замовчуванням (уникає прапорця --domain)
+# Default domain (avoids the --domain flag)
 domain: example.com
 
-# Формат звіту за замовчуванням: html, json, both
+# Default report format: html, json, both
 format: html
 
-# Максимальна кількість рядків на файл (0 = безліміт)
+# Maximum lines per file (0 = unlimited)
 max_lines: 0

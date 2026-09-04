@@ -1,0 +1,68 @@
+schema: 1
+id: com.pyshell.robotsaudit
+name: Robots Audit
+version: 1
+description: Audit a robots.txt against RFC 9309 — syntax, blocking mistakes, duplicate groups, sitemap directives — and test your key URLs against the rules
+icon: lucide:filter
+category: SEO
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 60
+
+inputs:
+  - key: site_url
+    type: url
+    label: "Site URL (fetch its robots.txt)"
+    help: "e.g. https://example.com — the file is fetched from {origin}/robots.txt, redirects followed"
+    group: Source
+    binding: {kind: arg, flag: "--site-url", style: space}
+
+  - key: robots_file
+    type: file
+    label: "…or a local robots.txt"
+    help: "Audit a file before deploying it — e.g. the draft Bot Hunter generated from your logs. Give either this or the Site URL, not both"
+    extensions: [txt]
+    group: Source
+    binding: {kind: arg, flag: "--robots-file", style: space}
+
+  - key: test_urls
+    type: multiline
+    label: "URLs to test against the rules (optional)"
+    help: One URL per line — each is checked against the rules and reported allowed or blocked, with the rule that decided it
+    group: Rules
+    binding: {kind: arg, flag: "--test-urls", style: space}
+
+  - key: user_agent
+    type: string
+    label: "User-agent for the URL tests"
+    help: "Which group's rules the test URLs are checked against — a bot token like Googlebot, or * (the default group)"
+    default: "*"
+    group: Rules
+    binding: {kind: arg, flag: "--user-agent", style: space}
+
+  - key: verify_sitemaps
+    type: bool
+    label: "Verify Sitemap URLs (extra requests)"
+    help: "Fetch each Sitemap: line and check it answers 200 — one request per sitemap"
+    default: false
+    group: Rules
+    binding: {kind: arg, flag: "--verify-sitemaps", style: flag}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 1
+    max: 60
+    default: 10
+    group: Source
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "robots_parsed.json"
+    - "report.md"
+  result: markdown

@@ -6,6 +6,9 @@ description: Run redirect/broken-link/canonical/duplicate-content/orphan/sitemap
 icon: lucide:search
 category: SEO
 
+needs:
+  - com.pyshell.sitecrawler
+
 runtime:
   entry: main.py
   python: ">=3.11,<3.15"

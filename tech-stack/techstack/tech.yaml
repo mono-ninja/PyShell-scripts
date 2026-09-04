@@ -1,27 +1,28 @@
-# Tech Stack — курована база сигнатур технологій.
+# Tech Stack — the curated technology signature base.
 #
-# Дані тут, а не в Python, бо кожне оновлення бази не має бути правкою коду й
-# рев'ю Python-дифу. Поле `updated`
-# потрапляє у звіт, бо база застаріває.
+# The data lives here, not in Python, because a database update must not
+# be a code change and a Python-diff review. The `updated` field lands
+# in the report — the base goes stale.
 #
-# Схема навмисно ізоморфна upstream-базі enthec/webappanalyzer: ті самі вектори
-# звуться `header/cookie/meta/html/script/inline_script/stylesheet/url_path/
-# js_global`, а версія вирізається групою `version_group`. Це робить конвертер
-# роботою на години, а не на тиждень.
+# The schema is deliberately isomorphic to the upstream
+# enthec/webappanalyzer base: the same vectors are called
+# `header/cookie/meta/html/script/inline_script/stylesheet/url_path/
+# js_global`, and the version is cut by the `version_group` regex
+# group. That keeps the converter a few hours of work, not a week.
 #
-# `where` може бути: header | cookie | meta | html | script (URL <script src>) |
-# inline_script | stylesheet | url_path | js_global (тільки під --render).
-#   - header:    потребує `name` (ім'я заголовка, lower-case)
-#   - cookie:    потребує `name` (ім'я cookie); шукає по імені, не значенню
-#   - meta:      потребує `name` (name або property, lower-case)
-#   - js_global: потребує `expr` (шлях у window) + `pattern`; `requires: render`
+# `where` can be: header | cookie | meta | html | script (URL <script src>) |
+# inline_script | stylesheet | url_path | js_global (--render only).
+#   - header:    needs `name` (header name, lower-case)
+#   - cookie:    needs `name` (cookie name); matched by name, not value
+#   - meta:      needs `name` (name or property, lower-case)
+#   - js_global: needs `expr` (path in window) + `pattern`; `requires: render`
 #
-# `version_group` — індекс групи регулярки, де сидить версія.
-# `confidence` — 0..100 внесок одного сигналу; накопичується як 1-Π(1-cᵢ).
-# `implies`    — похідна технологія, confidence не вища за джерело.
-# `excludes`   — конфлікт (Apache + IIS), лишається сильніший сигнал.
-# `negative`   — негативний сигнал: збіг прибирає технологію.
-# `requires`   — `render` — сигнал працює лише з --render.
+# `version_group` — the regex group index the version sits in.
+# `confidence` — 0..100 contribution of one signal; accumulated as 1-Π(1-cᵢ).
+# `implies`    — a derived technology; confidence never higher than its source.
+# `excludes`   — a conflict (Apache + IIS); the stronger signal stays.
+# `negative`   — a negative signal: a match removes the technology.
+# `requires`   — `render` — the signal works only with --render.
 
 version: 1
 updated: 2026-08-27

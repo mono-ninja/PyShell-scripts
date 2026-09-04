@@ -1,0 +1,81 @@
+schema: 1
+id: com.pyshell.sitemapgenerator
+name: Sitemap Generator
+version: 1
+description: Build sitemap.xml from a Site Crawler snapshot — only indexable canonical URLs make it in, every exclusion is shown with its reason
+icon: lucide:list
+category: SEO
+
+needs:
+  - com.pyshell.sitecrawler
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  timeout: 120
+
+inputs:
+  - key: snapshot_file
+    type: file
+    label: Site snapshot
+    extensions: [json]
+    required: true
+    help: site_snapshot.json produced by Site Crawler
+    group: Input
+    binding: {kind: arg, flag: "--snapshot-file", style: space}
+
+  - key: allow_partial
+    type: bool
+    label: "Generate even from a capped/partial crawl"
+    help: Off by default — a sitemap built from an interrupted crawl silently drops every URL the crawl never reached, and deploying it would remove those URLs from the working sitemap. Re-crawl instead, or turn this on when you understand the gap
+    default: false
+    group: Input
+    binding: {kind: arg, flag: "--allow-partial", style: flag}
+
+  - key: include_path
+    type: string
+    label: "Only include URLs matching this path glob (optional)"
+    help: "e.g. /blog/* — one pattern here; run from a terminal for several --include-path flags"
+    group: Filters
+    binding: {kind: arg, flag: "--include-path", style: space}
+
+  - key: exclude_path
+    type: string
+    label: "Skip URLs matching this path glob (optional)"
+    help: "e.g. /tag/* — one pattern here; run from a terminal for several --exclude-path flags"
+    group: Filters
+    binding: {kind: arg, flag: "--exclude-path", style: space}
+
+  - key: lastmod_mode
+    type: choice
+    label: "lastmod source"
+    options:
+      - {value: preserve, label: "Preserve — keep the previous sitemap's lastmod, fall back to crawl time (default)"}
+      - {value: crawl, label: "Crawl time — when Site Crawler fetched the page"}
+      - {value: none, label: "None — omit lastmod entirely"}
+    default: preserve
+    group: Content
+    binding: {kind: arg, flag: "--lastmod-mode", style: space}
+
+  - key: no_hreflang
+    type: bool
+    label: "Skip hreflang alternates (xhtml:link)"
+    help: By default each entry carries the page's hreflang map as xhtml:link rel=alternate rows — the correct form for multi-language sites (needs a schema 2+ snapshot)
+    default: false
+    group: Content
+    binding: {kind: arg, flag: "--no-hreflang", style: flag}
+
+  - key: out_dir
+    type: dir
+    label: "Write artifacts here too (optional)"
+    help: Artifacts always go to the PyShell run folder; pick a real project folder here so sitemap.xml survives after the run — same idea as Site Crawler's output folder
+    group: Output
+    binding: {kind: arg, flag: "--out-dir", style: space}
+
+outputs:
+  artifacts:
+    - "sitemap.xml"
+    - "sitemap-*.xml"
+    - "sitemap_excluded.csv"
+    - "report.md"
+  result: markdown

@@ -1111,6 +1111,78 @@ it is **not** rebuilt on its own. Running a script with a stale environment
 fails with an "environment not ready" error; click **Prepare Env** again to
 reinstall the dependencies.
 
+### Dependencies on other scripts (`needs`)
+
+A script can depend not on a Python package but on **another PyShell
+script**. Four variants of that dependency:
+
+| Variant | What it is | How PyShell supports it |
+|---|---|---|
+| **Data (pipeline)** | Script B reads script A's artifacts — the user runs A, then B with a `dir`/`files` field pointing at A's output | Nothing extra: a form field + `PYSHELL_OUTPUT_DIR` in A |
+| **Invocation (subprocess)** | B runs A's entry point as a child process | The path to A's folder arrives in `PYSHELL_DEPS` |
+| **Code (import)** | B imports a module from A's folder (`sys.path` + PYSHELL_DEPS) | The path is in `PYSHELL_DEPS`; but A's Python dependencies must be duplicated into B's `requirements.txt` — each script has its own venv |
+| **Soft synergy** | A improves B's work but isn't required | Text in `pyshell.md` only |
+
+The dependency is **declared** in the manifest — by the other script's id:
+
+```yaml
+schema: 1
+id: com.pyshell.pageseoaudit
+name: Page SEO Audit
+needs:
+  - com.pyshell.sitecrawler   # the id from that script's pyshell.yaml
+```
+
+What follows from it:
+
+- The script's **header** shows a yellow `Needs: …` pill when a
+  depended-on script is missing from the list (satisfied dependencies
+  are not shown — that would be noise).
+- The **Store** pulls missing dependencies as a chain on install
+  (recursively, cycle-safe). Installed ones are not updated — updating
+  is a separate action.
+- **At run time** PyShell passes the installed dependencies via the
+  `PYSHELL_DEPS` environment variable — a JSON map
+  `{"<id>": "<folder path>"}`:
+
+```python
+import json, os, subprocess, sys
+
+deps = json.loads(os.environ.get("PYSHELL_DEPS", "{}"))
+crawler = deps.get("com.pyshell.sitecrawler")
+
+if crawler:
+    # the "invocation" variant: a child process
+    subprocess.run([sys.executable, f"{crawler}/main.py", "--url", url], check=True)
+    # the "code" variant: import from the dependency's folder
+    # sys.path.insert(0, crawler) — and don't forget its dependencies
+    # in your own requirements.txt
+```
+
+`needs` is an **expectation, not a block**: the run is not forbidden
+when a dependency is missing (the script can handle that itself, as in
+the example above). A missing id simply never appears in
+`PYSHELL_DEPS`.
+
+**For humans**, the chain is described in `pyshell.md` — in a
+`## Dependencies` section:
+
+```markdown
+## Dependencies
+
+Requires **Site Crawler** (`com.pyshell.sitecrawler`):
+
+1. Run Site Crawler on the domain — it saves `urls.csv` to its artifacts
+2. Point this script's "URL list" field at that file
+
+Without Site Crawler, the script accepts its own URL list in the "URL
+list (manual)" field.
+```
+
+The manifest is for the machine (ids that can be verified and
+installed); `pyshell.md` is for the operator (what to run first, and
+why). Keep the two in agreement.
+
 ---
 
 ## Environment access

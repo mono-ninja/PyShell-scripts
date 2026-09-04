@@ -1,0 +1,100 @@
+schema: 1
+id: com.pyshell.subdomainsearch
+name: Subdomain Search
+version: 1
+description: Find a domain's subdomains via crt.sh, HackerTarget, RapidDNS and Shodan — then confirm them with parallel forward-DNS resolution and wildcard detection
+icon: lucide:target
+category: Recon
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 180
+
+inputs:
+  - key: domain
+    type: string
+    label: Domain
+    help: The registrable domain to enumerate, e.g. example.com (no scheme, no www — subdomains are what gets searched)
+    required: true
+    pattern: '^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$'
+    group: Target
+    binding:
+      kind: positional
+      index: 0
+
+  - key: sources
+    type: multi_choice
+    label: Sources
+    help: Which OSINT sources to query
+    options:
+      - value: crtsh
+        label: crt.sh (certificate transparency — the broadest)
+      - value: hackertarget
+        label: HackerTarget (host search, rate-limited)
+      - value: rapiddns
+        label: RapidDNS (passive DNS records)
+      - value: shodan
+        label: Shodan (DNS domain lookup)
+    default:
+      - crtsh
+      - hackertarget
+      - rapiddns
+    group: Sources
+    binding:
+      kind: arg
+      flag: "--sources"
+      style: joined
+      sep: " "
+
+  - key: shodan_key
+    type: secret
+    label: Shodan API Key
+    help: Required only if Shodan is selected. Get one at shodan.io
+    group: Sources
+    binding:
+      kind: env
+      name: SHODAN_API_KEY
+
+  - key: no_verify
+    type: bool
+    label: Skip DNS verification
+    help: If checked, print raw results without resolving subdomains — faster, but a stale or wrong record looks the same as a live one
+    default: false
+    group: Output
+    binding:
+      kind: arg
+      flag: "--no-verify"
+      style: flag
+
+  - key: workers
+    type: int
+    label: Verification threads
+    help: How many subdomains to resolve in parallel during DNS verification
+    min: 1
+    max: 200
+    default: 50
+    group: Output
+    binding:
+      kind: arg
+      flag: "--workers"
+      style: space
+
+  - key: max_subdomains
+    type: int
+    label: Max subdomains to verify
+    help: Cap on the number of candidates sent to DNS verification. Larger sets are truncated (with a status note) so the run stays within the timeout.
+    min: 1
+    default: 5000
+    group: Output
+    binding:
+      kind: arg
+      flag: "--max-subdomains"
+      style: space
+
+outputs:
+  artifacts:
+    - "*.csv"
+    - "*.json"
+  result: table

@@ -1,0 +1,54 @@
+schema: 1
+id: com.pyshell.dnsblcheck
+name: DNSBL Check
+version: 1
+description: Check an IP or a domain against the major public DNS blocklists — Spamhaus, SpamCop, Barracuda, SORBS and more — with per-zone verdicts and delisting links
+icon: lucide:flag
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: target
+    type: string
+    label: "IP or domain"
+    help: The sending IP (e.g. 198.51.100.25), or a domain — its A records are checked against the IP lists and the domain itself against the domain lists
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--target", style: space}
+
+  - key: nameserver
+    type: string
+    label: "Custom resolver (optional)"
+    help: "e.g. 1.1.1.1 — leave blank to use the system resolver. Careful: Spamhaus refuses queries from big public resolvers on the free tier; those zones will report 'blocked' rather than 'listed'"
+    group: Target
+    binding: {kind: arg, flag: "--nameserver", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-query timeout (s)"
+    min: 1
+    max: 30
+    default: 5
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: workers
+    type: int
+    label: "Parallel queries"
+    help: How many blocklist queries run at once
+    min: 1
+    max: 40
+    default: 10
+    group: Target
+    binding: {kind: arg, flag: "--workers", style: space}
+
+outputs:
+  artifacts:
+    - "dnsbl_raw.json"
+    - "report.md"
+  result: markdown

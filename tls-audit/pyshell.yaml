@@ -1,0 +1,45 @@
+schema: 1
+id: com.pyshell.tlsaudit
+name: TLS Audit
+version: 1
+description: Audit a host's TLS layer — certificate chain, expiry, hostname, key strength, protocols and weak ciphers — with a letter grade and concrete fixes
+icon: lucide:lock
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  timeout: 120
+
+inputs:
+  - key: target
+    type: string
+    label: Host
+    help: "example.com, example.com:8443 or https://example.com — scheme and path are ignored, port defaults to 443"
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--target", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-connection timeout (s)"
+    min: 1
+    max: 60
+    default: 10
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: cert_only
+    type: bool
+    label: "Certificate checks only"
+    help: "Skip the protocol and weak-cipher probes — 2 connections instead of 7. The grade then covers the certificate alone"
+    default: false
+    group: Target
+    binding: {kind: arg, flag: "--cert-only", style: flag}
+
+outputs:
+  artifacts:
+    - "tls_raw.json"
+    - "findings.json"
+    - "report.md"
+  result: markdown

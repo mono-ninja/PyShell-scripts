@@ -1,0 +1,58 @@
+schema: 1
+id: com.pyshell.uptimemonitor
+name: Uptime Monitor
+version: 1
+description: Poll a URL for minutes and watch it live — a scrolling latency chart, uptime percentage, percentiles and downtime intervals
+icon: lucide:activity
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 1800
+
+inputs:
+  - key: url
+    type: url
+    label: URL
+    help: Full address including scheme (https://…) — the endpoint being monitored
+    required: true
+    group: Monitor
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: duration
+    type: int
+    label: "Duration (s)"
+    help: How long to keep monitoring — up to 1700s (~28 minutes); the run must end inside PyShell's timeout
+    min: 10
+    max: 1700
+    default: 60
+    group: Monitor
+    binding: {kind: arg, flag: "--duration", style: space}
+
+  - key: interval
+    type: int
+    label: "Interval (s)"
+    help: Seconds between checks. The chart updates once per check
+    min: 1
+    max: 60
+    default: 5
+    group: Monitor
+    binding: {kind: arg, flag: "--interval", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-check timeout (s)"
+    help: A check slower than this counts as down — timeout, not latency
+    min: 1
+    max: 60
+    default: 5
+    group: Monitor
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "uptime_samples.json"
+    - "report.md"
+  result: markdown

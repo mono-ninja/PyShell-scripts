@@ -16,6 +16,19 @@ tells you what got fixed and what's new.
 
 ---
 
+## Dependencies
+
+Requires [**Site Crawler**](../../site-crawler) (`com.pyshell.sitecrawler`):
+
+1. Run Site Crawler on the site — it writes `site_snapshot.json` (pick
+   an output folder so the file survives the run)
+2. Point this script's **Site snapshot** field at that file
+
+Without Site Crawler there is nothing to check — the snapshot is the
+sole input, carrying every fact the checks read.
+
+---
+
 ## Before running
 
 1. Crawl the site with [Site Crawler](../../site-crawler) first — this script

@@ -6,15 +6,18 @@
 requests>=2.28
 pyyaml>=6.0
 
-# Для --render: js_globals (найнадійніше джерело версії) і реальні мережеві
-# запити через headless Chromium.
+# For --render: js_globals (the most reliable version source) and real
+# network requests through a headless Chromium.
 #
-# Ціна — ~134 МБ у venv скрипта: це сам пакет із вбудованим Node-драйвером,
-# а не браузер. Браузери Playwright живуть НЕ у venv, а в спільному кеші
-# ~/Library/Caches/ms-playwright (macOS), спільному для всіх venv на машині.
-# Тому якщо на машині вже стояв будь-який проєкт із Playwright, `playwright
-# install chromium` вдруге не потрібен — браузер уже завантажений.
+# The cost is ~134 MB in the script's venv: that is the package itself
+# with its bundled Node driver, not a browser. Playwright's browsers
+# live NOT in the venv but in a shared machine-wide cache —
+# ~/Library/Caches/ms-playwright (macOS) — common to every venv on the
+# machine. So if any Playwright project has ever run here,
+# `playwright install chromium` is not needed a second time: the
+# browser is already downloaded.
 #
-# Якщо браузера немає — Tech Stack не падає, а пише в попередження команду
-# `playwright install chromium` і продовжує без рендеру (див. render.py).
+# When the browser is missing, Tech Stack does not crash: it puts the
+# `playwright install chromium` command into a warning and continues
+# without rendering (see render.py).
 # playwright>=1.40
