@@ -1,0 +1,45 @@
+schema: 1
+id: com.pyshell.sricheck
+name: SRI Check
+version: 0.1
+description: "Whose code runs on your page, and is it pinned — the supply-chain view of the script and stylesheet tags: third-party resources without integrity (the Polyfill.io lesson), integrity without crossorigin (the browser refuses the resource), same-origin integrity (redundant and deploy-breaking), declared hashes verified against the bytes served right now, and ready-to-paste integrity tags with the pinning tradeoff said aloud"
+icon: lucide:check
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: url
+    type: string
+    label: Page URL
+    help: The page whose script and stylesheet tags are inspected (one fetch) — each unique resource is then fetched once to verify or compute its hash
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 3
+    max: 60
+    default: 15
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: skip_fetch
+    type: bool
+    label: Attributes only (no resource fetches)
+    help: Read the tags without downloading any resource — no hash verification and no ready-to-paste tags, exactly one request in total
+    default: false
+    group: Mode
+    binding: {kind: arg, flag: "--skip-fetch", style: flag}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

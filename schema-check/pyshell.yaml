@@ -1,0 +1,37 @@
+schema: 1
+id: com.pyshell.schemacheck
+name: Schema Check
+version: 0.1
+description: "Is the structured data valid and worth anything — JSON-LD parsed and validated against curated schema.org shapes (required and recommended properties, nested entities), microdata and RDFa spotted alongside, prices cross-checked against the visible page, and the verdict no validator gives: valid but no rich result (Google's supported list, data as YAML)"
+icon: lucide:table
+category: SEO
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 180
+
+inputs:
+  - key: url
+    type: string
+    label: URL
+    help: The page whose structured data to validate — one fetch, like Page SEO Audit
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 3
+    max: 60
+    default: 15
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

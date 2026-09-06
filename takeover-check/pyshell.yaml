@@ -1,0 +1,56 @@
+schema: 1
+id: com.pyshell.takeovercheck
+name: Takeover Check
+version: 0.1
+description: "Which of your subdomains can be hijacked — CNAMEs pointing at unclaimed cloud resources (S3, GitHub Pages, Heroku, Azure, Shopify…) checked against a curated fingerprint list with response markers and the closed-vs-open nuance, plus NXDOMAIN on the target as the dangling hint — signs shown, never a takeover performed"
+icon: lucide:map-pin
+category: Recon
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  - key: domain
+    type: string
+    label: Domain (or subdomains file)
+    help: The registrable domain — subdomains are collected from the crt.sh transparency feed; or point --subdomains-file at an existing list to skip the collection
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--domain", style: space}
+
+  - key: subdomains_file
+    type: file
+    label: Subdomains file (optional)
+    help: A plain-text list of hostnames (one per line) — when given, the domain is only used as the ownership filter and no feed is queried
+    extensions: [txt]
+    group: Target
+    binding: {kind: arg, flag: "--subdomains-file", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-probe timeout (s)"
+    help: Each DNS query and each candidate GET gets this long
+    min: 5
+    max: 60
+    default: 15
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: max_subdomains
+    type: int
+    label: "Max subdomains"
+    help: Safety cap on the candidate count from the feed
+    min: 10
+    max: 5000
+    default: 500
+    group: Target
+    binding: {kind: arg, flag: "--max-subdomains", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

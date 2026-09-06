@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.securityheaders
 name: Security Headers
-version: 1
+version: 0.1
 description: Grade a URL's HTTP security headers (HSTS, CSP, cookie flags, …) and list concrete fixes
 icon: lucide:shield-check
 category: Security

@@ -1,0 +1,38 @@
+schema: 1
+id: com.pyshell.corscheck
+name: CORS Check
+version: 0.1
+description: "Is the CORS policy actually strict — a series of requests with a spoofed Origin watches for reflection, the null origin, wildcard-plus-credentials and prefix/suffix matching traps, checks the preflight echo and the Vary: Origin that cache poisoning feeds on"
+icon: lucide:link
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: url
+    type: string
+    label: URL
+    help: The endpoint to probe — an API or page whose Access-Control headers you want understood
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    help: Each of the probe requests gets this long
+    min: 3
+    max: 60
+    default: 15
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

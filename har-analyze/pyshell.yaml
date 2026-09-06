@@ -1,0 +1,38 @@
+schema: 1
+id: com.pyshell.haranalyze
+name: HAR Analyze
+version: 0.1
+description: "What is actually heavy on this page — the DevTools HAR read offline: the waterfall by phases (dns/connect/ssl/wait/receive per resource), render-blocking scripts, the third-party inventory with bytes, size by type, what was served from cache, redirect chains and the worst 10 requests — zero network, pure diagnosis"
+icon: lucide:line-chart
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  timeout: 180
+
+inputs:
+  - key: har_file
+    type: file
+    label: HAR file
+    help: The .har saved from DevTools (Network tab → export); save it with response content to unlock the render-blocking analysis
+    extensions: [har]
+    required: true
+    group: Input
+    binding: {kind: arg, flag: "--har-file", style: space}
+
+  - key: max_entries
+    type: int
+    label: "Max entries"
+    help: Safety cap on the request entries (a huge HAR is truncated with a note)
+    min: 100
+    max: 50000
+    default: 5000
+    group: Input
+    binding: {kind: arg, flag: "--max-entries", style: space}
+
+outputs:
+  artifacts:
+    - "har_findings.json"
+    - "report.md"
+  result: markdown

@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.logattackchecker
 name: Log Attack Checker
-version: 1
+version: 0.1
 description: Apache/Nginx access log security analyzer for WordPress sites
 icon: lucide:shield
 category: Security

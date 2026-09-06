@@ -1,0 +1,46 @@
+schema: 1
+id: com.pyshell.dnsseccheck
+name: DNSSEC Check
+version: 0.1
+description: Can the DNS answer be trusted cryptographically — the DS/DNSKEY chain is validated from the IANA root anchor down to the domain, with key quality (algorithms, RSA key sizes, KSK/ZSK), signature expiry and an NSEC/NSEC3 peek; the sibling of DNS Propagation (same everywhere?) and Email DNS Audit
+icon: lucide:check-circle
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: domain
+    type: string
+    label: Domain
+    help: The zone to validate — the chain is walked from the root anchor through every parent down to it
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--domain", style: space}
+
+  - key: resolver
+    type: string
+    label: Resolver IP (optional)
+    help: "A custom resolver to query through (8.8.8.8, 1.1.1.1, your local one) — default: the system resolver. The validation itself is done here, not by the resolver"
+    default: ""
+    group: Target
+    binding: {kind: arg, flag: "--resolver", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-query timeout (s)"
+    help: Each DNS query (with one retry, TCP fallback on truncation) gets this long
+    min: 3
+    max: 60
+    default: 10
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

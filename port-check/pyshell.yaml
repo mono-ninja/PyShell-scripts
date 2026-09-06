@@ -1,0 +1,87 @@
+schema: 1
+id: com.pyshell.portcheck
+name: Port Check
+version: 0.1
+description: TCP port scan of a host you own — the common-service set, your own port spec, or the full range — with banner grabbing, service guessing and an attack-surface report; gated by an ownership confirmation like Load Test
+icon: lucide:wifi
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  timeout: 1800
+
+inputs:
+  - key: target
+    type: string
+    label: Host or URL
+    help: The server to scan — a bare host or a URL; it resolves to its IPv4 addresses. For a CDN-fronted site, scan the origin IP instead — the CDN's ports are not yours
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--target", style: space}
+
+  - key: i_own_this_target
+    type: bool
+    label: "I own this target or have permission to scan it"
+    help: The contract of this script — without this confirmation the run refuses to start. A port scan of a host you don't control is reconnaissance for an attack, whatever the intent
+    default: false
+    group: Target
+    binding: {kind: arg, flag: "--i-own-this-target", style: flag}
+
+  - key: port_set
+    type: choice
+    label: Port set
+    help: "Common (default): ~110 well-known service ports — web, mail, databases, remote access, admin panels; Custom: your spec; Full: all 65535 (minutes, not seconds)"
+    default: common
+    group: Scan
+    options:
+      - {value: common, label: "Common services (~110 ports)"}
+      - {value: custom, label: "Custom spec"}
+      - {value: full, label: "Full range 1–65535"}
+    binding: {kind: arg, flag: "--port-set", style: space}
+
+  - key: custom_ports
+    type: string
+    label: "Custom ports"
+    help: 'Ports and ranges, comma-separated — 80,443,8000-8100'
+    default: ""
+    visible_if:
+      op: eq
+      key: port_set
+      value: custom
+    group: Scan
+    binding: {kind: arg, flag: "--custom-ports", style: space}
+
+  - key: banners
+    type: bool
+    label: Grab banners
+    help: "On every open port: read the service greeting, and send an HTTP HEAD where nothing greets — that's how SSH/HTTP/SMTP… get named"
+    default: true
+    group: Scan
+    binding: {kind: arg, flag: "--banners", style: flag}
+
+  - key: timeout
+    type: int
+    label: "Per-port timeout (s)"
+    help: How long to wait for a connect (and a banner). Firewalled (dropping) hosts need the full wait per closed port — that's what makes scans slow
+    min: 1
+    max: 10
+    default: 2
+    group: Scan
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: workers
+    type: int
+    label: Concurrency
+    help: Ports probed in parallel
+    min: 10
+    max: 1000
+    default: 300
+    group: Scan
+    binding: {kind: arg, flag: "--workers", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

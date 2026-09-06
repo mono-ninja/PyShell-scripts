@@ -1,0 +1,56 @@
+schema: 1
+id: com.pyshell.mailprobe
+name: Mail Probe
+version: 0.1
+description: The SMTP wire layer of a mail domain — MX hosts, banners, STARTTLS with the certificate chain, AUTH mechanisms, PTR records, and an opt-in relay probe — the wire-side sibling of Email DNS Audit
+icon: lucide:message-square
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 300
+
+inputs:
+  - key: domain
+    type: string
+    label: Mail domain
+    help: The domain whose SMTP servers you want to probe — its MX hosts, on port 25. Point it at domains you own or operate (see docs)
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--domain", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-step timeout (s)"
+    help: Each connection, EHLO, STARTTLS and DNS query gets this long
+    min: 3
+    max: 60
+    default: 15
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: max_hosts
+    type: int
+    label: "Max MX hosts"
+    help: How many MX hosts to probe, most-preferred first
+    min: 1
+    max: 10
+    default: 3
+    group: Target
+    binding: {kind: arg, flag: "--max-hosts", style: space}
+
+  - key: check_relay
+    type: bool
+    label: Relay probe (opt-in)
+    help: "OFF by default. When on: MAIL FROM/RCPT TO with an external recipient, quitting before DATA — no mail is ever sent. An accepted RCPT for a third-party domain is the open-relay red flag"
+    default: false
+    group: Relay
+    binding: {kind: arg, flag: "--check-relay", style: flag}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

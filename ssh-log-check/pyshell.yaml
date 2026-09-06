@@ -1,0 +1,75 @@
+schema: 1
+id: com.pyshell.sshlogcheck
+name: SSH Log Check
+version: 0.1
+description: Analyze sshd logs (auth.log, secure, journald JSON, macOS log-show text) for brute-force IPs, tried users and compromised-account wins — with a ready fail2ban jail
+icon: lucide:key
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  - key: logs_dir
+    type: dir
+    label: Logs directory
+    help: Folder with the sshd logs to analyze — auth.log / secure / journald JSON export / macOS log-show text, plain or .gz; the format is detected per file, files that parse to nothing are reported as skipped
+    required: true
+    group: Source
+    binding: {kind: arg, flag: "--logs-dir", style: space}
+
+  - key: whitelist
+    type: string
+    label: Whitelisted IPs
+    help: Comma- or space-separated IPs to exclude entirely (your own addresses — they'd skew the brute-force stats)
+    default: ""
+    group: Source
+    binding: {kind: arg, flag: "--whitelist", style: space}
+
+  - key: bruteforce_threshold
+    type: int
+    label: Brute-force threshold
+    help: Failed attempts from one IP needed to flag it (fail2ban's default window counts 3–5)
+    min: 1
+    max: 1000
+    default: 5
+    group: Detection
+    binding: {kind: arg, flag: "--bruteforce-threshold", style: space}
+
+  - key: top_n
+    type: int
+    label: "Top N in tables"
+    help: How many rows the IP / user tables show (the JSON artifact keeps everything)
+    min: 5
+    max: 100
+    default: 20
+    group: Detection
+    binding: {kind: arg, flag: "--top-n", style: space}
+
+  - key: skip_geoip
+    type: bool
+    label: Skip GeoIP lookup
+    help: Off by default — the brute-force IPs' countries come from the free ip-api.com batch endpoint; on = fully offline run
+    default: false
+    group: GeoIP
+    binding: {kind: arg, flag: "--skip-geoip", style: flag}
+
+  - key: geoip_limit
+    type: int
+    label: "GeoIP lookup limit"
+    help: How many distinct IPs to enrich (ip-api's free tier is rate-limited; the busiest offenders are looked up first)
+    min: 10
+    max: 1000
+    default: 100
+    group: GeoIP
+    binding: {kind: arg, flag: "--geoip-limit", style: space}
+
+outputs:
+  artifacts:
+    - "report.md"
+    - "findings.json"
+    - "fail2ban_jail.conf"
+  result: markdown

@@ -1,0 +1,36 @@
+schema: 1
+id: com.pyshell.protocolcheck
+name: Protocol Check
+version: 0.1
+description: "Which protocols the site actually speaks — ALPN-negotiated h2 vs http/1.1, the HTTP/3 Alt-Svc announcement (honestly an announcement — no QUIC stack), compression actually served on Accept-Encoding (br/gzip/zstd), IPv6 with a real connection instead of just an AAAA record, keep-alive on one connection, TLS session resumption"
+icon: lucide:webhook
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  timeout: 120
+
+inputs:
+  - key: url
+    type: string
+    label: URL
+    help: The https:// site to probe — the handshake, the announcements and the wire behavior are read from it
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-probe timeout (s)"
+    min: 3
+    max: 60
+    default: 15
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

@@ -24,7 +24,7 @@
 # `negative`   — a negative signal: a match removes the technology.
 # `requires`   — `render` — the signal works only with --render.
 
-version: 1
+version: 0.1
 updated: 2026-08-27
 
 categories:

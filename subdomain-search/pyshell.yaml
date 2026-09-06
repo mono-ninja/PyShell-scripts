@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.subdomainsearch
 name: Subdomain Search
-version: 1
+version: 0.1
 description: Find a domain's subdomains via crt.sh, HackerTarget, RapidDNS and Shodan — then confirm them with parallel forward-DNS resolution and wildcard detection
 icon: lucide:target
 category: Recon

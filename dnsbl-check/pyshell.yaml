@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.dnsblcheck
 name: DNSBL Check
-version: 1
+version: 0.1
 description: Check an IP or a domain against the major public DNS blocklists — Spamhaus, SpamCop, Barracuda, SORBS and more — with per-zone verdicts and delisting links
 icon: lucide:flag
 category: Network

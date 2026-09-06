@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.techstack
 name: Tech Stack
-version: 1
+version: 0.1
 description: Fingerprint a site's tech stack — technologies, versions, outdated libraries, and a full third-party inventory
 icon: lucide:cpu
 category: Recon

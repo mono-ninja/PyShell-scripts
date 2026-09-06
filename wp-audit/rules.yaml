@@ -1,0 +1,230 @@
+# wp-audit rules.yaml — the curated built-in rule set.
+#
+# The same schema a --custom-rules file uses:
+#
+#   - id: unique-rule-id               # required
+#     description: "…"                 # required
+#     severity: critical|high|medium|low
+#     vuln_type: SQL_INJECTION|XSS|…   # the finding's category
+#     message: "Short finding text"
+#     match:
+#       regex: '<pattern>'             # required — must match the trigger line
+#     exclude:                         # optional — suppresses the finding when matched
+#       regex: '<pattern>'             #   on the trigger line or up to window_lines after it
+#       window_lines: 0                #   (default 0 = the trigger line itself)
+#     require_source:                  # optional — the finding needs one of these patterns
+#       window_lines: 15               #   within N lines before the trigger
+#       patterns: ['<pattern>']
+#     file_include: ['*.php']          # optional — filename globs (default *.php)
+#     file_exclude: ['wp-config.php']  # optional — skip files by name
+#
+# YAML quoting: single-quoted strings; a literal single quote inside
+# them is doubled: '' → '
+#
+# Curated to the collection's v1 scope: the highest-value signatures
+# from the original NinjaTools rulebook — real plugin/theme bugs and
+# real injected malware.
+
+rules:
+
+  # ── SQL injection ────────────────────────────────────────────────
+  - id: wpdb-direct-interpolation
+    description: "String interpolation inside a $wpdb method — high SQLi risk"
+    severity: critical
+    vuln_type: SQL_INJECTION
+    message: "Direct string interpolation in a $wpdb query — use $wpdb->prepare()"
+    match:
+      regex: '\$wpdb\s*->\s*(query|get_results|get_row|get_var|get_col)\s*\(\s*["''].*\$'
+    exclude:
+      regex: '\$wpdb\s*->\s*prepare\s*\('
+      window_lines: 0
+
+  - id: wpdb-sprintf-no-prepare
+    description: "$wpdb query built with sprintf() without prepare()"
+    severity: high
+    vuln_type: SQL_INJECTION
+    message: "sprintf()-built query passed to $wpdb without prepare()"
+    match:
+      regex: '\$wpdb\s*->\s*(query|get_results|get_row|get_var|get_col)\s*\(\s*sprintf\s*\('
+    exclude:
+      regex: '\$wpdb\s*->\s*prepare\s*\('
+      window_lines: 0
+
+  # ── XSS ──────────────────────────────────────────────────────────
+  - id: echo-superglobal-no-escape
+    description: "echo/print of $_GET/$_POST/$_REQUEST/$_COOKIE without escaping"
+    severity: high
+    vuln_type: XSS
+    message: "Unsanitized superglobal echoed directly — wrap in esc_html/esc_attr/esc_url"
+    match:
+      regex: '\b(echo|print)\b.*\$_(GET|POST|REQUEST|COOKIE)\s*\['
+    exclude:
+      regex: '\b(esc_html|esc_attr|esc_url|esc_js|esc_textarea|wp_kses|wp_kses_post|htmlspecialchars|htmlentities|intval|absint|sanitize_text_field)\s*\('
+      window_lines: 0
+
+  - id: echo-get-query-var-no-escape
+    description: "get_query_var() result echoed without escaping"
+    severity: high
+    vuln_type: XSS
+    message: "get_query_var() output echoed without an esc_*() wrapper"
+    match:
+      regex: '\b(echo|print)\b.*\bget_query_var\s*\('
+    exclude:
+      regex: '\b(esc_html|esc_attr|esc_url|wp_kses|wp_kses_post|intval|absint)\s*\('
+      window_lines: 0
+
+  # ── Code execution & obfuscation (the malware signatures) ────────
+  - id: eval-base64
+    description: "eval() of a base64_decode/gzinflate/str_rot13 chain — the classic injected-malware signature"
+    severity: critical
+    vuln_type: CODE_EXECUTION
+    message: "eval() over an obfuscation function — almost always injected malware, not site code"
+    match:
+      regex: '\beval\s*\(\s*@?\s*(base64_decode|gzinflate|str_rot13|gzuncompress)\s*\('
+
+  - id: obfuscated-payload-nearby-eval
+    description: "Long base64 blob within a few lines of eval()"
+    severity: high
+    vuln_type: CODE_EXECUTION
+    message: "Obfuscated payload near an eval — inspect this file by hand"
+    match:
+      regex: '\beval\s*\('
+    require_source:
+      window_lines: 3
+      patterns:
+        - '[A-Za-z0-9+/=]{80,}'
+
+  - id: shell-exec-family
+    description: "shell_exec / exec / system / passthru call"
+    severity: critical
+    vuln_type: CODE_EXECUTION
+    message: "A process-execution function — legitimate in rare plugins, golden in malware"
+    match:
+      regex: '\b(shell_exec|passthru|system)\s*\(|(^|[^a-z_])exec\s*\(|`[^`]*\$'
+    exclude:
+      regex: '\b(escapeshellarg|escapeshellcmd)\s*\('
+      window_lines: 0
+
+  # ── File operations ──────────────────────────────────────────────
+  - id: include-user-input
+    description: "include/require with a variable path"
+    severity: critical
+    vuln_type: FILE_OPERATIONS
+    message: "include/require over a variable path — LFI/RFI territory"
+    match:
+      regex: '\b(include|include_once|require|require_once)\s*\(?\s*\$'
+    exclude:
+      regex: 'get_stylesheet_directory|get_template_directory|plugin_dir_path|ABSPATH|WP_PLUGIN_DIR'
+      window_lines: 0
+
+  - id: write-user-input-path
+    description: "file_put_contents/fopen with a variable path"
+    severity: high
+    vuln_type: FILE_OPERATIONS
+    message: "File write over a variable path — check where the path can come from"
+    match:
+      regex: '\b(file_put_contents|fopen)\s*\(\s*\$'
+    exclude:
+      regex: 'wp_upload_dir|get_theme_file_path|plugin_dir_path'
+      window_lines: 0
+
+  # ── Object injection / deserialization ───────────────────────────
+  - id: unserialize-user-input
+    description: "unserialize() over request input"
+    severity: critical
+    vuln_type: OBJECT_INJECTION
+    message: "unserialize() of user-controlled data — PHP object injection"
+    match:
+      regex: '\bunserialize\s*\(\s*(\$_GET|\$_POST|\$_REQUEST|\$_COOKIE)'
+    exclude:
+      regex: '\b(json_decode)'
+      window_lines: 0
+
+  # ── SSRF / redirect ──────────────────────────────────────────────
+  - id: remote-get-user-url
+    description: "wp_remote_get/post over a user-controlled URL"
+    severity: high
+    vuln_type: SSRF
+    message: "Server-side request over a user-controllable URL — SSRF"
+    match:
+      regex: '\bwp_remote_(get|post|request)\s*\(\s*\$'
+    exclude:
+      regex: 'esc_url_raw|wp_http_validate_url|home_url|admin_url|site_url|rest_url'
+      window_lines: 0
+
+  - id: redirect-user-url
+    description: "wp_redirect over a user-controlled URL"
+    severity: medium
+    vuln_type: OPEN_REDIRECT
+    message: "Redirect target may be user-controlled — validate against an allowlist"
+    match:
+      regex: '\bwp_redirect\s*\(\s*\$|wp_safe_redirect\s*\(\s*\$_(GET|POST|REQUEST)'
+    exclude:
+      regex: 'wp_get_referer|home_url|admin_url|site_url'
+      window_lines: 0
+
+  # ── Access control ───────────────────────────────────────────────
+  - id: ajax-no-nonce
+    description: "wp_ajax handler with no nonce check nearby"
+    severity: high
+    vuln_type: ACCESS_CONTROL
+    message: "AJAX handler without check_ajax_referer/wp_verify_nonce — CSRF"
+    match:
+      regex: '\badd_action\s*\(\s*["'']wp_ajax_(nopriv_)?[a-z0-9_]+'
+    exclude:
+      regex: '\b(check_ajax_referer|wp_verify_nonce|wp_create_nonce)\s*\('
+      window_lines: 15
+
+  - id: rest-no-permission
+    description: "register_rest_route without a permission_callback"
+    severity: high
+    vuln_type: ACCESS_CONTROL
+    message: "REST route registered without permission_callback — public by default"
+    match:
+      regex: '\bregister_rest_route\s*\('
+    exclude:
+      regex: 'permission_callback'
+      window_lines: 12
+
+  - id: ip-spoofing-x-forwarded-for
+    description: "Client IP taken from X-Forwarded-For / HTTP_CLIENT_IP"
+    severity: medium
+    vuln_type: ACCESS_CONTROL
+    message: "Client IP trusted from a spoofable header — use $_SERVER['REMOTE_ADDR']"
+    match:
+      regex: '\$_SERVER\s*\[\s*["''](HTTP_X_FORWARDED_FOR|HTTP_CLIENT_IP|HTTP_X_REAL_IP)["'']\s*\]'
+
+  # ── Mail / header injection ──────────────────────────────────────
+  - id: mail-header-injection
+    description: "wp_mail over a variable without visible sanitization"
+    severity: high
+    vuln_type: HEADER_INJECTION
+    message: "wp_mail with potentially user-controlled arguments — header injection"
+    match:
+      regex: '\bwp_mail\s*\(\s*\$'
+    exclude:
+      regex: 'sanitize_email|sanitize_text_field|FILTER_VALIDATE_EMAIL'
+      window_lines: 0
+
+  # ── Secrets (not in wp-config.php — that one is supposed to have them)
+  - id: hardcoded-password
+    description: "Hardcoded password/API-key literal"
+    severity: medium
+    vuln_type: HARDCODED_SECRETS
+    message: "Hardcoded secret in code — move it out of the tree"
+    match:
+      regex: '\b(define|const)\s*\(\s*["''][A-Z0-9_]*(PASSWORD|API_KEY|SECRET|TOKEN)[A-Z0-9_]*["'']\s*,\s*["''][^"'']{6,}["'']'
+    file_exclude:
+      - "wp-config.php"
+
+  # ── File uploads ─────────────────────────────────────────────────
+  - id: upload-no-type-check
+    description: "move_uploaded_file with no extension/MIME validation nearby"
+    severity: high
+    vuln_type: FILE_OPERATIONS
+    message: "Uploaded file moved without a visible type check — arbitrary-upload territory"
+    match:
+      regex: '\bmove_uploaded_file\s*\('
+    exclude:
+      regex: 'wp_check_filetype|wp_get_mime_types|PATHINFO_EXTENSION|allowed_mime'
+      window_lines: 10

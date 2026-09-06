@@ -1,0 +1,85 @@
+schema: 1
+id: com.pyshell.ttsaudio
+name: TTS Audio
+version: 0.1
+description: Text to speech on your machine via Kokoro ONNX — offline neural voices, a dozen curated voices across languages, WAV artifact; the ~80–320 MB models are opt-in downloads into a cache dir
+icon: lucide:mic
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 1800
+
+inputs:
+  - key: text
+    type: multiline
+    label: Text
+    help: What to speak — up to 5000 characters (CPU synthesis is roughly real-time)
+    required: true
+    group: Voice
+    binding: {kind: arg, flag: "--text", style: space}
+
+  - key: voice
+    type: choice
+    label: Voice
+    help: The first letter encodes the language (a/b English, e Spanish, f French, i Italian, j Japanese, z Chinese) — the language is derived automatically
+    default: af_heart
+    group: Voice
+    options:
+      - {value: af_heart, label: "Heart — American English, female"}
+      - {value: af_bella, label: "Bella — American English, female"}
+      - {value: af_nicole, label: "Nicole — American English, female (soft)"}
+      - {value: am_adam, label: "Adam — American English, male"}
+      - {value: am_michael, label: "Michael — American English, male"}
+      - {value: am_puck, label: "Puck — American English, male"}
+      - {value: bf_emma, label: "Emma — British English, female"}
+      - {value: bm_george, label: "George — British English, male"}
+      - {value: ef_dora, label: "Dora — Spanish, female"}
+      - {value: ff_siwis, label: "Siwis — French, female"}
+      - {value: if_sara, label: "Sara — Italian, female"}
+      - {value: jf_alpha, label: "Alpha — Japanese, female"}
+      - {value: zf_xiaobei, label: "Xiaobei — Mandarin Chinese, female"}
+    binding: {kind: arg, flag: "--voice", style: space}
+
+  - key: speed
+    type: float
+    label: Speed
+    min: 0.5
+    max: 2.0
+    default: 1.0
+    group: Voice
+    binding: {kind: arg, flag: "--speed", style: space}
+
+  - key: model_variant
+    type: choice
+    label: Model variant
+    help: "int8 (~80 MB) is the default; fp16 and full trade size for quality"
+    default: int8
+    group: Models
+    options:
+      - {value: int8, label: "int8 — small and fast (default)"}
+      - {value: fp16, label: "fp16 — larger, better"}
+      - {value: full, label: "full — the original (~310 MB)"}
+    binding: {kind: arg, flag: "--model-variant", style: space}
+
+  - key: download_models
+    type: bool
+    label: Download the models if missing
+    help: "Opt-in: fetches the chosen model (~80–310 MB) and the voices file (~27 MB) into the cache dir, with a progress bar. Without this, a missing model is exit 1 with instructions"
+    default: false
+    group: Models
+    binding: {kind: arg, flag: "--download-models", style: flag}
+
+  - key: models_dir
+    type: dir
+    label: "Models dir (optional)"
+    help: Where the model files live — defaults to ~/.cache/pyshell/tts-audio, shared across runs
+    group: Models
+    binding: {kind: arg, flag: "--models-dir", style: space}
+
+outputs:
+  artifacts:
+    - "speech.wav"
+  result: markdown

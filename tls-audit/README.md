@@ -2,8 +2,10 @@
 
 A [PyShell](https://github.com/mono-ninja/PyShell) script that grades a
 host's TLS layer — certificate chain, expiry, hostname match, key
-strength, signature algorithm, protocol support, weak ciphers — from
-**seven TLS handshakes, zero HTTP requests**. The transport-side
+strength, signature algorithm, protocol support, weak ciphers, the
+SC-081 lifetime schedule and the post-quantum hybrid — from **seven
+TLS handshakes, zero HTTP requests** (an eighth, optional probe
+rides on the system `openssl`). The transport-side
 sibling of [Security Headers](../security-headers): identical scoring
 model (0–100, letter grade, findings with config-change fixes), the
 two reports read as one system.
@@ -16,8 +18,12 @@ counts exactly what was attempted.
 
 - **Certificate** — chain of trust against the system store, hostname
   match (RFC 6125: SANs first, wildcard rules, legacy CN fallback),
-  expiry with a 7-day/30-day escalation, the 398-day public-trust
-  lifetime limit, public key strength (RSA/EC/Ed25519), signature
+  expiry with a 7-day/30-day escalation, the **SC-081 lifetime
+  schedule** (398 days before 2026-03-15, 200 from 2026-03-15, 100
+  from 2027-03-15, 47 from 2029-03-15 — the cap follows the issue
+  date, not a flat number), the **renewal-cadence verdict** (at 47
+  days, manual renewal is an outage waiting to happen — automate),
+  public key strength (RSA/EC/Ed25519), signature
   algorithm (SHA-1/MD5 flagged). The certificate is parsed from its
   DER bytes, so a **self-signed or expired cert still gets fully
   described** — an audit of a broken host must not come back empty.
@@ -27,6 +33,13 @@ counts exactly what was attempted.
 - **Weak ciphers** — a TLS 1.2 handshake offering only
   NULL/EXPORT/DES/RC4/IDEA/anon suites: accepted → fail with the
   negotiated suite named.
+- **Post-quantum (informational)** — the X25519MLKEM768 hybrid
+  (group `0x11EC`) probed via the system `openssl s_client`
+  offering it as the only group: negotiated / refused / no TLS 1.3
+  (a TLS 1.2 server ignores key-share groups — never read as
+  "refused"). Needs a local OpenSSL ≥ 3.5; otherwise **not
+  checked**, never "not supported". Severity 0 on every branch —
+  the grade never moves for PQ.
 - **Honest "cannot probe"** — when the local OpenSSL refuses to offer
   a version or cipher client-side, the row says so and is **not
   scored**; the fix section points at `nmap --script ssl-enum-ciphers`.

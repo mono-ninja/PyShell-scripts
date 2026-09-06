@@ -1,0 +1,60 @@
+schema: 1
+id: com.pyshell.figmaexport
+name: Figma Export
+version: 0.1
+description: "The bridge from the design tool to the icon conveyor — components of a Figma file or frame exported as SVG (optional PNG at 1x/2x) with names normalized to the sprite's own slug convention (icon- prefix stripped, kebab-case), ready for Icon Audit → SVG Optimize → SVG Sprite Build. Personal access token via the Keychain, never argv. The honest limit, surfaced live: the Variables API is Enterprise-only — 'not checked', never 'no variables'"
+icon: lucide:cloud
+category: Icons
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  - key: figma_url
+    type: string
+    label: Figma URL
+    help: "The file/design URL — https://www.figma.com/design/<key>/Name, optionally with ?node-id=… to scope one frame; every component under it is exported"
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--figma-url", style: space}
+
+  - key: token
+    type: secret
+    label: Figma access token
+    help: "A personal access token (Figma → Settings → Security → Personal access tokens, read-only scope is enough) — stored in the Keychain, never in the command line"
+    group: Target
+    binding:
+      kind: env
+      name: FIGMA_TOKEN
+
+  - key: png_scale
+    type: choice
+    label: Also export PNG
+    help: SVG is the conveyor's currency; PNG is optional for places SVG can't go
+    default: none
+    group: Export
+    options:
+      - {value: none, label: "SVG only"}
+      - {value: "1", label: "PNG at 1x"}
+      - {value: "2", label: "PNG at 2x"}
+    binding: {kind: arg, flag: "--png-scale", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 5
+    max: 120
+    default: 30
+    group: Export
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "*.svg"
+    - "*.png"
+    - "findings.json"
+    - "report.md"
+  result: markdown

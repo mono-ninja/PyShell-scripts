@@ -1,0 +1,102 @@
+schema: 1
+id: com.pyshell.qrgenerate
+name: QR Generate
+version: 0.1
+description: QR codes from text or URLs — error-correction level, colors, optional center logo — one at a time or a batch from a CSV, saved as PNG artifacts
+icon: lucide:square
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: text
+    type: multiline
+    label: Content
+    help: What the QR code carries — a URL, text, WiFi string, vCard… (ignored in batch mode)
+    group: Content
+    binding: {kind: arg, flag: "--text", style: space}
+
+  - key: batch_csv
+    type: file
+    label: "Batch CSV (optional)"
+    help: A CSV with a content column — one QR per row. An optional name column names the files (qr_001.png otherwise). Replaces the Content field
+    extensions: [csv]
+    group: Content
+    binding: {kind: arg, flag: "--batch-csv", style: space}
+
+  - key: name
+    type: string
+    label: "Filename (single mode)"
+    help: Artifact name without extension — qr_code.png by default
+    default: ""
+    group: Content
+    binding: {kind: arg, flag: "--name", style: space}
+
+  - key: error_correction
+    type: choice
+    label: Error correction
+    help: "L 7% / M 15% (default) / Q 25% / H 30% — higher survives more damage (and a logo)"
+    default: M
+    group: QR
+    options:
+      - {value: L, label: "L — 7%"}
+      - {value: M, label: "M — 15% (default)"}
+      - {value: Q, label: "Q — 25%"}
+      - {value: H, label: "H — 30% (with a logo)"}
+    binding: {kind: arg, flag: "--error-correction", style: space}
+
+  - key: box_size
+    type: int
+    label: "Module size (px)"
+    help: Pixels per QR module — the code's resolution
+    min: 2
+    max: 40
+    default: 10
+    group: QR
+    binding: {kind: arg, flag: "--box-size", style: space}
+
+  - key: border
+    type: int
+    label: "Border (modules)"
+    help: Quiet zone around the code — the spec minimum is 4
+    min: 1
+    max: 8
+    default: 4
+    group: QR
+    binding: {kind: arg, flag: "--border", style: space}
+
+  - key: fg_color
+    type: string
+    label: Foreground
+    help: "Hex color of the modules — #000000 by default"
+    default: "#000000"
+    pattern: "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+    group: Colors
+    binding: {kind: arg, flag: "--fg-color", style: space}
+
+  - key: bg_color
+    type: string
+    label: Background
+    help: "Hex color of the quiet zone — #FFFFFF by default"
+    default: "#FFFFFF"
+    pattern: "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+    group: Colors
+    binding: {kind: arg, flag: "--bg-color", style: space}
+
+  - key: logo
+    type: file
+    label: "Center logo (optional)"
+    help: An image pasted at the code's center, auto-sized to ~20% — use H error correction with it
+    extensions: [png, jpg, jpeg, webp, svg]
+    group: Colors
+    binding: {kind: arg, flag: "--logo", style: space}
+
+outputs:
+  artifacts:
+    - "qr_code.png"
+    - "qr_*.png"
+  result: markdown

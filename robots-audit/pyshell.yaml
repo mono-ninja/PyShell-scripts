@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.robotsaudit
 name: Robots Audit
-version: 1
+version: 0.1
 description: Audit a robots.txt against RFC 9309 — syntax, blocking mistakes, duplicate groups, sitemap directives — and test your key URLs against the rules
 icon: lucide:filter
 category: SEO

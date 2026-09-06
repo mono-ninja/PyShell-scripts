@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.bothunter
 name: Bot Hunter
-version: 1
+version: 0.1
 description: SEO log analyzer — detect bots, optimize crawl budget, and block scrapers in Apache/Nginx access logs
 icon: lucide:bot
 category: SEO

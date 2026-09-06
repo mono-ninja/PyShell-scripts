@@ -1,0 +1,90 @@
+# takeover-check fingerprints — the curated takeover-signature list.
+#
+# Each entry (the tech.yaml / bypass_hosts.yaml data precedent):
+#
+#   - service: human name
+#     cname: [suffixes]      # a CNAME ending in one of these matches
+#     marker: "text"         # the body marker of an UNCLAIMED target
+#     takeover: true|false   # whether claiming the resource is even
+#                            #   possible today — false is its own
+#                            #   answer ("the service closed it"),
+#                            #   never a silent skip
+#     docs: link             # the provider's own page on domains
+#
+# Curated to the classics from the public takeover feeds; the
+# takeover flags reflect the providers' current verification
+# requirements and WILL age — when a service adds domain
+# verification, flip the flag and note the date.
+
+fingerprints:
+  - service: Amazon S3
+    cname: [".s3.amazonaws.com", "s3.amazonaws.com"]
+    marker: "NoSuchBucket"
+    takeover: true
+    docs: https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteAccessModifiersReqd.html
+
+  - service: GitHub Pages
+    cname: [".github.io", "github.io"]
+    marker: "There isn't a GitHub Pages site here"
+    takeover: true
+    docs: https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site
+
+  - service: Heroku
+    cname: [".herokuapp.com", ".herokudns.com", "herokuapp.com"]
+    marker: "No such app"
+    takeover: true
+    docs: https://devcenter.heroku.com/articles/custom-domains
+
+  - service: Azure App Services
+    cname: [".azurewebsites.net", ".cloudapp.azure.com", ".azureedge.net", ".trafficmanager.net"]
+    marker: "404 Web Site not found"
+    takeover: true
+    docs: https://learn.microsoft.com/en-us/azure/app-service/app-service-web-tutorial-custom-domain
+
+  - service: Shopify
+    cname: [".myshopify.com"]
+    marker: "Sorry, this shop is currently unavailable"
+    takeover: true
+    docs: https://help.shopify.com/en/manual/domains
+
+  - service: Tumblr
+    cname: [".tumblr.com", "tumblr.com"]
+    marker: "There's nothing here"
+    takeover: true
+    docs: https://www.tumblr.com/docs/en/custom_domains
+
+  - service: Pantheon
+    cname: [".pantheonsite.io"]
+    marker: "The gods are wise, but do not know of the site which you seek"
+    takeover: true
+    docs: https://pantheon.io/docs/domains
+
+  - service: Fastly
+    cname: [".fastly.net", "fastly.net"]
+    marker: "Fastly error: unknown domain"
+    takeover: false       # Fastly requires backend/host validation
+    docs: https://docs.fastly.com/en/guides/working-with-domains
+
+  - service: Vercel
+    cname: [".vercel.app", ".now.sh", "vercel.app"]
+    marker: "The deployment could not be found"
+    takeover: false       # domain verification required since 2022
+    docs: https://vercel.com/docs/domains
+
+  - service: Netlify
+    cname: [".netlify.app", ".netlify.com", "netlify.app"]
+    marker: "Not Found"
+    takeover: false       # custom domains must be claimed per-site
+    docs: https://docs.netlify.com/domains-https/custom-domains/
+
+  - service: WordPress.com
+    cname: [".wordpress.com", "wordpress.com"]
+    marker: "Do you want to register"
+    takeover: false       # mapped domains must be added in the account
+    docs: https://wordpress.com/support/domains/
+
+  - service: Google Cloud Storage
+    cname: [".c.storage.googleapis.com", ".storage.googleapis.com"]
+    marker: "NoSuchBucket"
+    takeover: true
+    docs: https://cloud.google.com/storage/docs/hosting-static-website

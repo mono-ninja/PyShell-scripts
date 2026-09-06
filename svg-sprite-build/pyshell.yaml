@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.svgspritebuild
 name: SVG Sprite — Build
-version: 1
+version: 0.1
 description: Bundle a folder of SVG icons into one symbol sprite
 icon: lucide:package
 category: Icons

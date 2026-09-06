@@ -10,6 +10,14 @@ a letter grade, identical in shape to ``security-headers`` — the two
 scripts audit the two layers of the same endpoint (transport here,
 HTTP headers there).
 
+An eighth, optional probe rides on the system ``openssl`` binary:
+the post-quantum X25519MLKEM768 hybrid (group 0x11EC), offered as
+the only key-share group. Without a local OpenSSL ≥ 3.5 the verdict
+is **not checked** — never "not supported". The certificate
+lifetime check follows the SC-081 schedule (200 days from
+2026-03-15, 100 from 2027-03-15, 47 from 2029-03-15) and adds the
+renewal-cadence verdict the short-certificate era forces.
+
 Exit codes follow the collection philosophy — findings aren't failures:
 
 * ``0`` — the endpoint was reached and audited. Grade F is a successful
@@ -37,6 +45,7 @@ from src.connect import (
     probe_version,
     probe_weak_ciphers,
 )
+from src.postquantum import probe_pq
 from src.report import STATUS_ICON, build_report, grade_for, score_findings
 from src.target import TargetError, parse_target
 
@@ -130,8 +139,20 @@ def run_probes(host: str, port: int, timeout: int, cert_only: bool):
             except ProbeUnavailable:
                 weak = None
 
+        # The post-quantum probe rides on the system openssl binary
+        # (Python's ssl cannot request a key-share group). It only
+        # counts as a connection when the probe actually ran — a
+        # client that cannot offer the group made no connection.
+        tick("Probing the post-quantum hybrid")
+        pq = probe_pq(host, port, timeout)
+        if pq.get("state") == "not checked":
+            done -= 1      # no connection was actually made
+    else:
+        pq = None
+
     facts = Facts(host=host, port=port, collect=collect, trust=trust,
-                  probes=probes, weak=weak, cert_only=cert_only)
+                  probes=probes, weak=weak, cert_only=cert_only,
+                  pq=pq)
     facts.derive()
     return facts, done
 
@@ -178,8 +199,9 @@ def write_artifacts(facts: Facts, findings: list, score: int | None,
                                    "version": h.version, "cipher": h.cipher}
                             for name, h in facts.probes.items()},
         "weak_cipher_probe": ({"ok": facts.weak.ok, "cipher": facts.weak.cipher,
-                               "error": facts.weak.error}
-                              if facts.weak is not None else None),
+                                "error": facts.weak.error}
+                               if facts.weak is not None else None),
+        "postquantum": facts.pq,
     }
     with open(os.path.join(out_dir, "tls_raw.json"), "w", encoding="utf-8") as fh:
         json.dump(raw, fh, indent=2, ensure_ascii=False)

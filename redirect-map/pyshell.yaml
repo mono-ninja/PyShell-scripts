@@ -1,0 +1,60 @@
+schema: 1
+id: com.pyshell.redirectmap
+name: Redirect Map
+version: 0.1
+description: "The missing link between Wayback Check's vanished URLs and SEO Checks' chain audits — old URLs (wayback CSV, an old Site Crawler snapshot, or a plain list) matched against a fresh crawl snapshot: path and slug matching with a confidence tier per row (confident / needs review / not found — proposed, never claimed), ready-to-paste nginx map and .htaccess, and a live check that each redirect really lands 301 → 200 without chains or loops"
+icon: lucide:rotate-cw
+category: SEO
+
+needs:
+  - com.pyshell.sitecrawler
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  timeout: 900
+
+inputs:
+  - key: old_source
+    type: file
+    label: Old URLs
+    help: "Where the gone URLs come from — wayback-check's wayback_vanished.csv, an old Site Crawler snapshot (.json), or a plain one-URL-per-line list (.txt)"
+    extensions: [csv, json, txt]
+    required: true
+    group: Input
+    binding: {kind: arg, flag: "--old-source", style: space}
+
+  - key: snapshot_file
+    type: file
+    label: New snapshot
+    help: The site_snapshot.json of the site as it is now — Site Crawler's fresh crawl (pick an output folder so the file survives the run)
+    extensions: [json]
+    required: true
+    group: Input
+    binding: {kind: arg, flag: "--snapshot-file", style: space}
+
+  - key: skip_verify
+    type: bool
+    label: Skip live verification
+    help: "Off by default: each proposed redirect is requested live (301 → 200, chains and loops named) — skip for a pure offline pass over the two files"
+    default: false
+    group: Verification
+    binding: {kind: arg, flag: "--skip-verify", style: flag}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 3
+    max: 60
+    default: 15
+    group: Verification
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "redirect_map.conf"
+    - "redirect_map_htaccess.txt"
+    - "redirect_map.csv"
+    - "findings.json"
+    - "report.md"
+  result: markdown

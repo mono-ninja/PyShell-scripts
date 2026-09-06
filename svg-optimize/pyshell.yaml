@@ -1,0 +1,138 @@
+schema: 1
+id: com.pyshell.svgoptimize
+name: SVG Optimize
+version: 0.1
+description: Minify SVG files with scour — number precision, metadata stripping — and never write a file bigger than the input
+icon: lucide:sparkles
+category: Icons
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  # --- Source: same three-mode shape as image-optimizer ---
+  - key: input_mode
+    type: choice
+    label: Source
+    help: One SVG, several selected files, or a folder
+    default: single
+    group: Input
+    options:
+      - {value: single, label: Single SVG}
+      - {value: multiple, label: Multiple SVGs}
+      - {value: folder, label: Folder}
+    binding: {kind: arg, flag: "--mode", style: space}
+
+  - key: single_svg
+    type: file
+    label: SVG file
+    help: The SVG to optimize
+    extensions: [svg]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: single
+    group: Input
+    binding: {kind: arg, flag: "--single-svg", style: space}
+
+  - key: multiple_svgs
+    type: files
+    label: SVG files
+    help: The SVGs to optimize (you can select several)
+    extensions: [svg]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: multiple
+    group: Input
+    binding: {kind: arg, flag: "--input-file", style: repeat}
+
+  - key: input_folder
+    type: dir
+    label: SVG folder
+    help: Every .svg in this folder is optimized (other files are noted as skipped)
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--input-folder", style: space}
+
+  - key: recursive
+    type: bool
+    label: Recursive (with subfolders)
+    help: Walk the folder along with its subfolders, preserving the structure in the output
+    default: false
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--recursive", style: flag}
+
+  # --- Optimize settings ---
+  - key: precision
+    type: int
+    label: Number precision (digits)
+    help: Decimal places kept in coordinates — 5 keeps rendering identical; 2–3 shrinks paths further with a real (usually invisible) tradeoff. Scour requires at least 1
+    min: 1
+    max: 10
+    default: 5
+    group: Optimize
+    binding: {kind: arg, flag: "--precision", style: space}
+
+  - key: strip_metadata
+    type: bool
+    label: Strip metadata
+    help: Drops the <metadata> element — the editor junk (Inkscape, Illustrator) that often outweighs the drawing itself. <title>/<desc> (accessibility) are kept
+    default: true
+    group: Optimize
+    binding: {kind: arg, flag: "--strip-metadata", style: flag}
+
+  - key: strip_comments
+    type: bool
+    label: Strip comments
+    default: true
+    group: Optimize
+    binding: {kind: arg, flag: "--strip-comments", style: flag}
+
+  - key: strip_xml_prolog
+    type: bool
+    label: Strip XML prolog
+    help: The <?xml …?> line — unnecessary for SVG served over HTTP (UTF-8 is assumed); keep it if a tool downstream needs it
+    default: true
+    group: Optimize
+    binding: {kind: arg, flag: "--strip-xml-prolog", style: flag}
+
+  - key: shorten_ids
+    type: bool
+    label: Shorten IDs
+    help: Renames long element IDs to short ones — bigger savings, but breaks any reference to those IDs from outside the file. Off by default
+    default: false
+    group: Optimize
+    binding: {kind: arg, flag: "--shorten-ids", style: flag}
+
+  # --- Output: same shape as image-optimizer ---
+  - key: output_folder
+    type: dir
+    label: Output folder
+    help: Where to save the optimized copies — the originals are never touched
+    required: true
+    group: Output
+    binding: {kind: arg, flag: "--output-folder", style: space}
+
+  - key: overwrite
+    type: bool
+    label: Overwrite existing
+    help: When off — existing files are skipped
+    default: false
+    group: Output
+    binding: {kind: arg, flag: "--overwrite", style: flag}
+
+outputs:
+  artifacts:
+    - "optimization_report.csv"
+  result: table

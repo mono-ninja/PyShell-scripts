@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.servertiming
 name: Server Timing
-version: 1
+version: 0.1
 description: Server response time with phase breakdown (DNS/TCP/TLS/TTFB) and series percentiles
 icon: lucide:timer
 category: Network

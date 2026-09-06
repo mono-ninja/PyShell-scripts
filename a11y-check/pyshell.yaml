@@ -1,0 +1,48 @@
+schema: 1
+id: com.pyshell.a11ycheck
+name: A11y Check
+version: 0.1
+description: "The accessibility pass a page deserves — WCAG text contrast computed from static CSS (the color-palette engine), forms without labels, heading skips, ARIA misuse, focus traps and generic link text — one fetch, honest about what static analysis cannot see"
+icon: lucide:users
+category: SEO
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 180
+
+inputs:
+  - key: url
+    type: string
+    label: URL
+    help: The page to check — one fetch, like Page SEO Audit
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    help: The page fetch and each stylesheet fetch get this long
+    min: 3
+    max: 60
+    default: 15
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: max_stylesheets
+    type: int
+    label: "Stylesheets for contrast"
+    help: How many linked stylesheets to fetch for the contrast pass (simple tag/class/id rules only — the static scope)
+    min: 0
+    max: 10
+    default: 3
+    group: Target
+    binding: {kind: arg, flag: "--max-stylesheets", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

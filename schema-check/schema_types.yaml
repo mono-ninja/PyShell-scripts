@@ -1,0 +1,86 @@
+# schema-check schema_types.yaml — the curated validation data.
+#
+# google_rich_results: the types Google's rich results actually
+# render (31 supported as of March 2026; FAQ Pages lost their SERP
+# listing May 7, 2026). A type outside this list is NOT an error —
+# "valid schema, no rich result": still useful for Bing, Perplexity
+# and other consumers. That verdict is this script's point.
+#
+# types: per-type required/recommended properties, curated to the
+# common shapes (a subset of schema.org; the deep vocabulary lives
+# at schema.org, not here).
+
+google_rich_results:
+  - Article
+  - Book
+  - BreadcrumbList
+  - Course
+  - Dataset
+  - Event
+  - FAQPage
+  - HowTo
+  - ImageObject
+  - JobPosting
+  - LocalBusiness
+  - Movie
+  - Organization
+  - Person
+  - Product
+  - QAPage
+  - Recipe
+  - Review
+  - SearchAction
+  - SoftwareApplication
+  - SpecialAnnouncement
+  - VideoObject
+  - WebSite
+
+types:
+  Article:
+    required: [headline, author, datePublished, image]
+    recommended: [dateModified, publisher, mainEntityOfPage]
+  NewsArticle:
+    required: [headline, author, datePublished, image]
+    recommended: [dateModified, publisher]
+  Product:
+    required: [name, offers]
+    recommended: [image, description, brand, aggregateRating, review]
+  Offer:
+    required: [price, priceCurrency]
+    recommended: [availability, url, priceValidUntil]
+  Event:
+    required: [name, startDate, location]
+    recommended: [endDate, eventStatus, organizer, offers, image]
+  LocalBusiness:
+    required: [name, address]
+    recommended: [telephone, openingHours, geo, url, priceRange]
+  Recipe:
+    required: [name, recipeInstructions]
+    recommended: [image, cookTime, recipeYield, author]
+  FAQPage:
+    required: [mainEntity]
+    recommended: []
+  HowTo:
+    required: [name, step]
+    recommended: [image, totalTime, estimatedCost]
+  JobPosting:
+    required: [title, datePosted, hiringOrganization, jobLocation]
+    recommended: [validThrough, employmentType, baseSalary]
+  Organization:
+    required: [name, url]
+    recommended: [logo, sameAs, contactPoint]
+  Person:
+    required: [name]
+    recommended: [url, sameAs, jobTitle, worksFor]
+  VideoObject:
+    required: [name, description, thumbnailUrl, uploadDate]
+    recommended: [duration, contentUrl, embedUrl]
+  BreadcrumbList:
+    required: [itemListElement]
+    recommended: []
+  Review:
+    required: [itemReviewed, reviewRating]
+    recommended: [author, datePublished]
+  WebSite:
+    required: [name, url]
+    recommended: [potentialAction]

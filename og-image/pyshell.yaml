@@ -1,0 +1,127 @@
+schema: 1
+id: com.pyshell.ogimage
+name: OG Image
+version: 0.1
+description: "Social cards at the 1200×630 standard, produced not checked — one at a time or a batch from CSV (hundreds of pages in one run): title, subtitle, optional logo, three fixed templates (gradient / accent banner / your background image) in brand colors, plus the ready meta-tag snippet (og:image, width/height, alt, twitter:card). The favicon-generator form applied to the social side; Page SEO Audit checks the tag, this makes the file it points at"
+icon: lucide:rocket
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  - key: mode
+    type: choice
+    label: Mode
+    help: One card, or a batch from a CSV (title, subtitle, out — one card per row)
+    default: single
+    group: Input
+    options:
+      - {value: single, label: Single card}
+      - {value: batch, label: Batch from CSV}
+    binding: {kind: arg, flag: "--mode", style: space}
+
+  - key: title
+    type: string
+    label: Title
+    help: The page title as it should read on the card (wrapped and auto-shrunk to fit)
+    visible_if:
+      op: eq
+      key: mode
+      value: single
+    group: Input
+    binding: {kind: arg, flag: "--title", style: space}
+
+  - key: subtitle
+    type: string
+    label: Subtitle
+    help: The smaller line under the title (optional)
+    visible_if:
+      op: eq
+      key: mode
+      value: single
+    group: Input
+    binding: {kind: arg, flag: "--subtitle", style: space}
+
+  - key: csv_file
+    type: file
+    label: CSV of cards
+    help: "Columns: title, subtitle (optional), out (optional filename without extension); one card per row"
+    extensions: [csv]
+    visible_if:
+      op: eq
+      key: mode
+      value: batch
+    group: Input
+    binding: {kind: arg, flag: "--csv-file", style: space}
+
+  - key: template
+    type: choice
+    label: Template
+    help: Three fixed layouts, not a constructor — gradient (two brand colors), banner (solid base + accent bar), image (your background, darkened for legibility)
+    default: gradient
+    group: Design
+    options:
+      - {value: gradient, label: Gradient}
+      - {value: banner, label: Accent banner}
+      - {value: image, label: Background image}
+    binding: {kind: arg, flag: "--template", style: space}
+
+  - key: color_primary
+    type: string
+    label: Primary color
+    help: "Hex — the gradient's start / the banner's background"
+    default: "#101828"
+    group: Design
+    binding: {kind: arg, flag: "--color-primary", style: space}
+
+  - key: color_accent
+    type: string
+    label: Accent color
+    help: "Hex — the gradient's end / the accent bar / the overlay tint"
+    default: "#4f46e5"
+    group: Design
+    binding: {kind: arg, flag: "--color-accent", style: space}
+
+  - key: logo
+    type: file
+    label: Logo (optional)
+    help: PNG with transparency works best; placed in the top-left corner
+    extensions: [png, jpg, jpeg, webp]
+    group: Design
+    binding: {kind: arg, flag: "--logo", style: space}
+
+  - key: bg_image
+    type: file
+    label: "Background image (template: image)"
+    help: Cover-fit into 1200×630 and darkened so text reads; required only for the image template
+    extensions: [png, jpg, jpeg, webp]
+    group: Design
+    binding: {kind: arg, flag: "--bg-image", style: space}
+
+  - key: font_file
+    type: file
+    label: Font (optional)
+    help: TTF/OTF for the title and subtitle — a brand font makes the card; without it a system sans-serif is used
+    extensions: [ttf, otf]
+    group: Design
+    binding: {kind: arg, flag: "--font-file", style: space}
+
+  - key: base_url
+    type: string
+    label: Base URL (for the snippet)
+    help: "When given, the meta snippet points at absolute URLs (https://site.com/og/card.png); otherwise relative filenames with a note"
+    default: ""
+    group: Snippet
+    binding: {kind: arg, flag: "--base-url", style: space}
+
+outputs:
+  artifacts:
+    - "*.png"
+    - "meta-snippets.html"
+    - "findings.json"
+    - "report.md"
+  result: markdown

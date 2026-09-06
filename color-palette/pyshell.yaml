@@ -1,0 +1,58 @@
+schema: 1
+id: com.pyshell.colorpalette
+name: Color Palette
+version: 0.1
+description: Extract a site's color palette from its CSS — backgrounds, text, borders, shadows, icons — with similar colors grouped, ready as CSS variables and JSON
+icon: lucide:grid
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 300
+
+inputs:
+  - key: url
+    type: url
+    label: Site URL
+    help: The page whose palette you want — its inline styles, style attributes and linked stylesheets are read (one fetch each)
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: max_stylesheets
+    type: int
+    label: "Max stylesheets"
+    help: How many linked CSS files to read — sites with dozens of files are capped politely
+    min: 1
+    max: 60
+    default: 25
+    group: Target
+    binding: {kind: arg, flag: "--max-stylesheets", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 5
+    max: 60
+    default: 15
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: top_n
+    type: int
+    label: "Colors per category"
+    help: How many colors each report section shows (the JSON artifact keeps every group)
+    min: 3
+    max: 30
+    default: 8
+    group: Report
+    binding: {kind: arg, flag: "--top-n", style: space}
+
+outputs:
+  artifacts:
+    - "palette.css"
+    - "palette.json"
+    - "report.md"
+  result: markdown

@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.dnspropagation
 name: DNS Propagation
-version: 1
+version: 0.1
 description: Check one DNS record across ~20 public resolvers at once — who serves the new value, who still the old one, with TTLs and an agreement summary
 icon: lucide:refresh-cw
 category: Network

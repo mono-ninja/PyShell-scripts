@@ -1,0 +1,31 @@
+schema: 1
+id: com.pyshell.hreflangcheck
+name: Hreflang Check
+version: 0.1
+description: "The multilingual wiring under the microscope — reciprocity of alternate links (A → B but B ↛ A), missing and duplicated x-default, invalid language-region codes, alternates pointing at non-canonical or broken pages, and clusters without a self-reference — read from a Site Crawler snapshot"
+icon: lucide:map
+category: SEO
+
+needs:
+  - com.pyshell.sitecrawler
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  timeout: 180
+
+inputs:
+  - key: snapshot_file
+    type: file
+    label: Site snapshot
+    help: The site_snapshot.json produced by Site Crawler — crawl the site first (pick an output folder so the file survives the run)
+    extensions: [json]
+    required: true
+    group: Input
+    binding: {kind: arg, flag: "--snapshot-file", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.emaildnsaudit
 name: Email DNS Audit
-version: 1
+version: 0.1
 description: Check SPF, DMARC, DKIM and MX records for a domain and grade email-spoofing protection
 icon: lucide:mail
 category: Network

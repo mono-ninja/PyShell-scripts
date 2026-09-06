@@ -18,7 +18,7 @@
 | **Proxy** | `--proxy`, ім'я користувача + пароль (`secret`), `--noproxy` |
 | **Cookies** | `-b` (надіслати), `-c` (зберегти) |
 | **Output** | `-s`/`-S`/`-v`, `-w`, `--dump-header`, зберегти тіло як артефакт |
-| **Advanced** | `--resolve`, `--connect-to`, DNS-сервери, DNS-over-HTTPS, Unix-socket, keep-alive |
+| **Advanced** | `--resolve`, `--connect-to`, DNS-сервери, DNS-over-HTTPS, Unix socket, keep-alive |
 
 ## Секрети
 

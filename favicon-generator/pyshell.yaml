@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.favicongenerator
 name: Favicon Generator
-version: 1
+version: 0.1
 description: Generate the complete favicon set from one image — multi-size ICO, classic PNGs, apple-touch-icon, PWA icons, webmanifest and the ready-to-paste head snippet
 icon: lucide:star
 category: Media

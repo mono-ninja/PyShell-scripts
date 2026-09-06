@@ -37,9 +37,27 @@ from src.connect import Handshake
 EXPIRY_FAIL_DAYS = 7
 EXPIRY_WARN_DAYS = 30
 
-# CA/Browser Forum ballot 193 (March 2018): no publicly-trusted
-# certificate may be valid longer than 398 days.
-MAX_LIFETIME_DAYS = 398
+# The public-trust validity cap, by issue date. Ballot 193 (March
+# 2018) set 398 days; SC-081 shortens it further: 200 days for
+# certificates issued from 2026-03-15, 100 from 2027-03-15, 47 from
+# 2029-03-15. The cap applies to the *issue* date, so a 398-day
+# certificate issued in early 2026 stays legal — the schedule, not
+# a flat number, is the check.
+LIFETIME_SCHEDULE = (
+    (datetime(2029, 3, 15, tzinfo=timezone.utc), 47),
+    (datetime(2027, 3, 15, tzinfo=timezone.utc), 100),
+    (datetime(2026, 3, 15, tzinfo=timezone.utc), 200),
+)
+LEGACY_LIFETIME_DAYS = 398
+
+
+def lifetime_limit(issued_on: datetime) -> int:
+    """Maximum public-trust validity for a certificate issued on
+    that date (the SC-081 schedule; 398 days before 2026-03-15)."""
+    for since, limit in LIFETIME_SCHEDULE:
+        if issued_on >= since:
+            return limit
+    return LEGACY_LIFETIME_DAYS
 
 
 @dataclass
@@ -62,6 +80,7 @@ class Facts:
     probes: dict[str, Handshake | None]   # 'TLS 1.0' … -> result, None = cannot probe
     weak: Handshake | None             # weak-cipher probe; None = skipped/unavailable
     cert_only: bool = False
+    pq: dict | None = None             # post-quantum probe (src.postquantum)
 
     # Derived once, shared by several checks:
     parsed: ParsedCert | None = None
@@ -146,19 +165,57 @@ def check_validity(facts: Facts) -> list[Finding]:
 
 
 def check_lifetime(facts: Facts) -> list[Finding]:
+    """The SC-081 schedule: the validity cap depends on the issue
+    date, and short certificates carry a renewal-cadence verdict —
+    the "will you manage this by hand" question the 47-day era
+    makes unavoidable."""
     cert = facts.parsed
     if cert is None or cert.not_before is None or cert.not_after is None:
         return [Finding("Certificate lifetime", "pass", 0,
                         "validity dates unreadable", "")]
     days = (cert.not_after - cert.not_before).days
-    if days > MAX_LIFETIME_DAYS:
-        return [Finding(
+    limit = lifetime_limit(cert.not_before)
+    findings: list[Finding] = []
+    if days > limit:
+        findings.append(Finding(
             "Certificate lifetime", "warn", 2,
-            f"{days} days — over the {MAX_LIFETIME_DAYS}-day public-trust limit",
-            "Publicly-trusted certificates cannot exceed 398 days; a longer "
-            "one is either private CA or misissued — check the issuer")]
-    return [Finding("Certificate lifetime", "pass", 2,
-                    f"{days} days", "")]
+            f"{days} days — over the {limit}-day limit for "
+            f"certificates issued {cert.not_before:%Y-%m-%d} "
+            f"(SC-081 schedule)",
+            "A public CA cannot issue over the schedule — this is "
+            "a private CA or a misissued certificate; check the "
+            "issuer, and plan the shorter renewals the schedule "
+            "forces"))
+    else:
+        findings.append(Finding("Certificate lifetime", "pass", 2,
+                                f"{days} days (limit {limit} for "
+                                f"issue date "
+                                f"{cert.not_before:%Y-%m-%d})", ""))
+    # The cadence verdict — informational, the honest answer to
+    # "can a human keep this up".
+    if days <= 47:
+        findings.append(Finding(
+            "Renewal cadence", "warn", 0,
+            f"{days}-day certificate — a manual renewal every "
+            "few weeks is not a process, it is an outage waiting "
+            "to happen",
+            "Automate: ACME (certbot/acme.sh), the load balancer's "
+            "managed certificates, or the CDN's edge certificates "
+            "— by the 2029 47-day norm, manual renewal is untenable"))
+    elif days <= 100:
+        findings.append(Finding(
+            "Renewal cadence", "warn", 0,
+            f"{days}-day certificate — roughly three manual "
+            "renewals a year per name",
+            "Automation recommended before the schedule tightens "
+            "to 47 days in 2029 — ACME or managed certificates"))
+    elif days <= 200:
+        findings.append(Finding(
+            "Renewal cadence", "pass", 0,
+            f"{days}-day certificate — about two manual renewals "
+            "a year; manageable by hand, automation still better",
+            ""))
+    return findings
 
 
 def check_public_key(facts: Facts) -> list[Finding]:
@@ -279,6 +336,33 @@ def check_weak_ciphers(facts: Facts) -> list[Finding]:
     return [Finding("Weak ciphers", "pass", 8, "refused", "")]
 
 
+def check_postquantum(facts: Facts) -> list[Finding]:
+    """The X25519MLKEM768 hybrid — informational by design: it is
+    2026-forward readiness, not a vulnerability being graded today.
+    "Not checked" (a client that cannot offer the group) is never
+    allowed to read as "not supported"."""
+    if facts.cert_only or not facts.pq:
+        return []
+    state, note = facts.pq.get("state", "not checked"), \
+        facts.pq.get("note", "")
+    if state == "supported":
+        return [Finding("Post-quantum (X25519MLKEM768)", "pass", 0,
+                        "negotiated — " + note, "")]
+    if state == "not offered":
+        return [Finding("Post-quantum (X25519MLKEM768)", "warn", 0,
+                        note,
+                        "Enable the hybrid key exchange on the "
+                        "frontend when it supports it (nginx 1.28+ "
+                        "with OpenSSL 3.5+, or the CDN's PQ toggle) "
+                        "— informational today, table stakes in a "
+                        "few years")]
+    return [Finding("Post-quantum (X25519MLKEM768)", "warn", 0,
+                    "not checked — " + note,
+                    "Install OpenSSL ≥ 3.5 locally to probe the "
+                    "hybrid group; the verdict stays empty rather "
+                    "than guessed")]
+
+
 def check_negotiated(facts: Facts) -> list[Finding]:
     """What a modern client actually gets — informational context."""
     c = facts.collect
@@ -306,6 +390,7 @@ ALL_CHECKS = (
     check_negotiated,
     check_protocols,
     check_weak_ciphers,
+    check_postquantum,
 )
 
 

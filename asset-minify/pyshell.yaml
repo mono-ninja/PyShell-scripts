@@ -1,0 +1,119 @@
+schema: 1
+id: com.pyshell.assetminify
+name: Asset Minify
+version: 0.1
+description: Minify CSS and JS through the system terser and clean-css-cli — a wrapper, like cURL — with vendor-prefixing via autoprefixer, never overwriting the originals
+icon: lucide:wrench
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  timeout: 600
+
+inputs:
+  # --- Source: same three-mode shape as image-optimizer ---
+  - key: input_mode
+    type: choice
+    label: Source
+    help: One file, several selected files, or a folder
+    default: single
+    group: Input
+    options:
+      - {value: single, label: Single file}
+      - {value: multiple, label: Multiple files}
+      - {value: folder, label: Folder}
+    binding: {kind: arg, flag: "--mode", style: space}
+
+  - key: single_asset
+    type: file
+    label: File
+    help: The .css or .js to minify
+    extensions: [css, js]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: single
+    group: Input
+    binding: {kind: arg, flag: "--single-asset", style: space}
+
+  - key: multiple_assets
+    type: files
+    label: Files
+    help: The files to minify (you can select several)
+    extensions: [css, js]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: multiple
+    group: Input
+    binding: {kind: arg, flag: "--input-file", style: repeat}
+
+  - key: input_folder
+    type: dir
+    label: Folder
+    help: Every .css/.js in this folder is minified (already-minified *.min.* files are skipped)
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--input-folder", style: space}
+
+  - key: only
+    type: choice
+    label: Only
+    help: In folder mode — process CSS, JS or both
+    default: both
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    options:
+      - {value: both, label: "CSS and JS"}
+      - {value: css, label: "CSS only"}
+      - {value: js, label: "JS only"}
+    binding: {kind: arg, flag: "--only", style: space}
+
+  - key: recursive
+    type: bool
+    label: Recursive (with subfolders)
+    help: Walk the folder along with its subfolders, preserving the structure in the output
+    default: false
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--recursive", style: flag}
+
+  # --- Options ---
+  - key: prefix
+    type: bool
+    label: Vendor-prefix CSS (autoprefixer)
+    help: Runs autoprefixer (postcss) before minifying — needs postcss-cli + autoprefixer installed
+    default: false
+    group: Options
+    binding: {kind: arg, flag: "--prefix", style: flag}
+
+  - key: output_folder
+    type: dir
+    label: Output folder
+    help: Where the .min.css / .min.js files land — the originals are never touched
+    required: true
+    group: Output
+    binding: {kind: arg, flag: "--output-folder", style: space}
+
+  - key: overwrite
+    type: bool
+    label: Overwrite existing
+    help: When off — existing .min files in the output folder are skipped
+    default: false
+    group: Output
+    binding: {kind: arg, flag: "--overwrite", style: flag}
+
+outputs:
+  artifacts:
+    - "minification_report.csv"
+  result: table

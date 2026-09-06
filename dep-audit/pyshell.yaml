@@ -1,0 +1,48 @@
+schema: 1
+id: com.pyshell.depaudit
+name: Dep Audit
+version: 0.1
+description: "Known vulnerabilities in the project's own lockfiles — requirements, poetry, npm/yarn/pnpm, composer, go, Gemfile, Cargo parsed for pinned versions and checked against OSV in batches (free, keyless) — unpinned ranges are listed honestly as not checked, never guessed"
+icon: lucide:folder
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  - key: project_dir
+    type: dir
+    label: Project folder
+    help: The folder with the lockfiles — every supported lockfile found is audited (requirements.txt, poetry.lock, package-lock.json, yarn.lock, pnpm-lock.yaml, composer.lock, go.mod, Gemfile.lock, Cargo.lock)
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--project-dir", style: space}
+
+  - key: max_deps
+    type: int
+    label: "Max dependencies"
+    help: Safety cap on the dependency count across all lockfiles
+    min: 10
+    max: 20000
+    default: 3000
+    group: Target
+    binding: {kind: arg, flag: "--max-deps", style: space}
+
+  - key: timeout
+    type: int
+    label: "OSV request timeout (s)"
+    help: Each batch query to api.osv.dev gets this long
+    min: 10
+    max: 120
+    default: 30
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

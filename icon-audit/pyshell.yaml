@@ -1,0 +1,35 @@
+schema: 1
+id: com.pyshell.iconaudit
+name: Icon Audit
+version: 0.1
+description: "QA of an icon set before the sprite is built — while fixing is still cheap: viewBox diversity (the 24/20/16 mix), naming against the sprite's own slug convention (silent renames and the collisions that would hard-fail the build), mixed fill/stroke styles, stroke-width outliers, geometry duplicates (same paths under different names), embedded rasters inside SVGs, the title/aria shape, and the most valuable: unused icons, grepped against your codebase. The conveyor's gate: Figma Export → this → SVG Optimize → SVG Sprite Build"
+icon: lucide:folder-open
+category: Icons
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 180
+
+inputs:
+  - key: icons_dir
+    type: dir
+    label: Icon folder
+    help: The folder of .svg files the sprite would be built from (non-recursive, like SVG Sprite Build itself)
+    required: true
+    group: Input
+    binding: {kind: arg, flag: "--icons-dir", style: space}
+
+  - key: code_dir
+    type: dir
+    label: Code folder (for the unused check)
+    help: "Optional — your project folder: every icon's symbol id and slug is grepped here; never-referenced icons are named. Skips .git, node_modules and binaries by design"
+    group: Input
+    binding: {kind: arg, flag: "--code-dir", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

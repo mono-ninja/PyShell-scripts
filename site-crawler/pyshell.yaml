@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.sitecrawler
 name: Site Crawler
-version: 1
+version: 0.1
 description: Crawl a site from a seed URL and save a structured snapshot (pages, status codes, redirects, canonical, links) for downstream SEO checks
 icon: lucide:compass
 category: SEO

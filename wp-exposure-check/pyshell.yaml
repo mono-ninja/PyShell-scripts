@@ -1,0 +1,49 @@
+schema: 1
+id: com.pyshell.wpexposurecheck
+name: WP Exposure Check
+version: 0.1
+description: Check which WordPress doors a site leaves open — REST user enumeration, XML-RPC, readme.html, debug.log, uploads listing — one passive GET per endpoint, with the fix for each
+icon: lucide:alert-triangle
+category: Recon
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: url
+    type: url
+    label: Site URL
+    help: Base URL of the WordPress site (https://example.com) — each endpoint is probed under this host only
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    help: One GET per endpoint, this long each
+    min: 1
+    max: 60
+    default: 10
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: fail_on
+    type: choice
+    label: "Fail the run (exit code 3) on"
+    help: Exposures aren't failures by default — this is only for a CI gate
+    options:
+      - {value: none, label: "Nothing — always exit 0 (default)"}
+      - {value: any, label: "Any exposure found"}
+    default: none
+    group: CI
+    binding: {kind: arg, flag: "--fail-on", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

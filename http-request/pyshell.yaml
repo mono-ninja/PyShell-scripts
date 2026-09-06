@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.httprequest
 name: HTTP Request
-version: 1
+version: 0.1
 description: Send one HTTP request and inspect the response — status, headers, body, timing, cookies
 icon: lucide:send
 category: Network

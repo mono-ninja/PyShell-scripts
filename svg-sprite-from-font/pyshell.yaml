@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.svgspritefromfont
 name: SVG Sprite — From Font
-version: 1
+version: 0.1
 description: Convert a legacy icon font (FontAwesome 4, IcoMoon, …) into a symbol sprite
 icon: lucide:layers
 category: Icons

@@ -1,0 +1,36 @@
+schema: 1
+id: com.pyshell.ghaaudit
+name: GHA Audit
+version: 0.1
+description: "What the GitHub Actions workflows actually allow — saved .github/workflows reviewed passively: actions pinned to tags instead of SHAs (the tj-actions shape), pull_request_target with a PR checkout, event interpolation straight into run:, secrets echoed to logs, self-hosted runners, permission scopes"
+icon: lucide:play
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 120
+
+inputs:
+  - key: repo_dir
+    type: dir
+    label: Repository folder
+    help: The repo root (the one with .github/workflows) — or a folder of workflow files directly; every .yml/.yaml under it is audited
+    required: true
+    group: Input
+    binding: {kind: arg, flag: "--repo-dir", style: space}
+
+  - key: recursive
+    type: bool
+    label: Recursive
+    help: Walk the whole tree looking for .github/workflows folders (monorepos)
+    default: true
+    group: Input
+    binding: {kind: arg, flag: "--recursive", style: flag}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

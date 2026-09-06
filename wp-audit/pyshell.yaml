@@ -1,0 +1,66 @@
+schema: 1
+id: com.pyshell.wpaudit
+name: WP Audit
+version: 0.1
+description: SAST over a WordPress site's own code — themes and plugins scanned against curated rules (SQLi, XSS, eval-obfuscation, object injection, access control), findings with line snippets and fixes
+icon: lucide:code
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 1800
+
+inputs:
+  - key: site_dir
+    type: dir
+    label: Site folder
+    help: The WordPress site's folder on disk. By default only wp-content/ (your themes and plugins — the code that matters) is scanned; wp-admin and wp-includes are core, not yours
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--site-dir", style: space}
+
+  - key: whole_tree
+    type: bool
+    label: Scan the whole tree
+    help: Off = wp-content only (when present); on = every PHP file under the folder, core included
+    default: false
+    group: Target
+    binding: {kind: arg, flag: "--whole-tree", style: flag}
+
+  - key: custom_rules
+    type: file
+    label: "Custom rules (optional)"
+    help: Extra rules in the same YAML format as the built-in set — see docs/pyshell.md for the schema
+    extensions: [yaml, yml]
+    group: Rules
+    binding: {kind: arg, flag: "--custom-rules", style: space}
+
+  - key: max_files
+    type: int
+    label: "Max files"
+    help: Safety cap on the scan (a wp-content folder is thousands of files)
+    min: 100
+    max: 100000
+    default: 20000
+    group: Rules
+    binding: {kind: arg, flag: "--max-files", style: space}
+
+  - key: fail_on
+    type: choice
+    label: "Fail the run (exit code 3) on"
+    help: Findings aren't failures by default — this is only for a CI gate
+    options:
+      - {value: none, label: "Nothing — always exit 0 (default)"}
+      - {value: critical, label: "Any critical finding"}
+      - {value: any, label: "Any finding at all"}
+    default: none
+    group: CI
+    binding: {kind: arg, flag: "--fail-on", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

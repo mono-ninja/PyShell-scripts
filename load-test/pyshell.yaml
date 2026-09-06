@@ -1,0 +1,89 @@
+schema: 1
+id: com.pyshell.loadtest
+name: Load Test
+version: 0.1
+description: Phased load against a site you own — controlled RPS per phase, a live latency/throughput chart, and a degradation report against the baseline — no credentials, no amplification, no third-party targets
+icon: lucide:zap
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 1800
+
+inputs:
+  - key: url
+    type: url
+    label: Target URL
+    help: The site you are about to load — only this host receives traffic
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: i_own_this_target
+    type: bool
+    label: "I own this target or have permission to load-test it"
+    help: The contract of this script — without this confirmation the run refuses to start. Loading a site you don't control is an attack, whatever the intent
+    default: false
+    group: Target
+    binding: {kind: arg, flag: "--i-own-this-target", style: flag}
+
+  - key: phases
+    type: multi_choice
+    label: Phases
+    help: "baseline: homepage at the set rate — the reference; search: /?s=<random> (defeats caching, hits the DB); rest: /wp-json/wp/v2/posts; login: the login page (never submitted); xmlrpc: a small system.listMethods POST; custom: your paths"
+    default: [baseline, search]
+    group: Plan
+    options:
+      - {value: baseline, label: "Baseline — homepage (reference)"}
+      - {value: search, label: "Search flood — /?s=<random>"}
+      - {value: rest, label: "REST API — /wp-json/wp/v2/posts"}
+      - {value: login, label: "Login page — GET wp-login.php (never submitted)"}
+      - {value: xmlrpc, label: "XML-RPC — system.listMethods POST"}
+      - {value: custom, label: "Custom paths"}
+    binding: {kind: arg, flag: "--phase", style: repeat}
+
+  - key: custom_paths
+    type: multiline
+    label: "Custom paths (custom phase)"
+    help: One path per line, starting with / — fetched round-robin in the custom phase
+    visible_if:
+      op: truthy
+      key: phases
+    group: Plan
+    binding: {kind: arg, flag: "--custom-paths", style: space}
+
+  - key: rps
+    type: int
+    label: "Target rate (req/s)"
+    help: Requests per second, held steady per phase by the pacer
+    min: 1
+    max: 100
+    default: 10
+    group: Load
+    binding: {kind: arg, flag: "--rps", style: space}
+
+  - key: duration
+    type: int
+    label: "Phase duration (s)"
+    min: 5
+    max: 300
+    default: 30
+    group: Load
+    binding: {kind: arg, flag: "--duration", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 1
+    max: 60
+    default: 10
+    group: Load
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "loadtest_results.json"
+    - "report.md"
+  result: markdown

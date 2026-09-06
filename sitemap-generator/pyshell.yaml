@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.sitemapgenerator
 name: Sitemap Generator
-version: 1
+version: 0.1
 description: Build sitemap.xml from a Site Crawler snapshot — only indexable canonical URLs make it in, every exclusion is shown with its reason
 icon: lucide:list
 category: SEO

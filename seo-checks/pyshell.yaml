@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.seochecks
 name: SEO Checks
-version: 1
+version: 0.1
 description: Run redirect/broken-link/canonical/duplicate-content/orphan/sitemap checks against a Site Crawler snapshot
 icon: lucide:search
 category: SEO

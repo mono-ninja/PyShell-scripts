@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.pageseoaudit
 name: Page SEO Audit
-version: 1
+version: 0.1
 description: Full on-page SEO audit of one URL — meta, headings, alt text, social tags, hreflang, structured data, mixed content
 icon: lucide:file-text
 category: SEO

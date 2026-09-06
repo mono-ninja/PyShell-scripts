@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.imageoptimizer
 name: Image Optimizer
-version: 1
+version: 0.1
 description: Shrink JPEG/PNG/WebP file size — recompress and strip metadata without changing format
 icon: lucide:sliders
 category: Media

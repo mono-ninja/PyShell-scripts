@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.ipdomains
 name: IP → Domains
-version: 1
+version: 0.1
 description: Find all domains hosted on the same IP via crt.sh, HackerTarget, ViewDNS, Shodan
 icon: lucide:eye
 category: Recon

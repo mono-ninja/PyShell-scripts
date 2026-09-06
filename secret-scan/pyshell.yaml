@@ -1,0 +1,86 @@
+schema: 1
+id: com.pyshell.secretscan
+name: Secret Scan
+version: 0.2
+description: "Credential leaks in a codebase or config folder — AWS keys, GitHub/Slack/Stripe tokens, private keys, database URLs with passwords, committed .env files — the wp-audit rule engine with YAML rules (bring your own), findings masked everywhere so the report never repeats the leak; two modes, one engine and one masking contract: the working tree, or the full git history (every line ever added via git log -p, commit-attributed, the rotated key that still lives in every clone)"
+icon: lucide:git-branch
+category: Security
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  timeout: 600
+
+inputs:
+  - key: target
+    type: dir
+    label: Folder to scan
+    help: The project or config folder — tree mode checks every text file (.git, node_modules, vendor and lockfiles skipped); history mode walks the git commits themselves
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--target", style: space}
+
+  - key: mode
+    type: choice
+    label: Scan mode
+    help: "Working tree — the files you are about to commit; History — every line ever added, commit-attributed via the system git (the rotated key removed three commits ago still lives in every clone)"
+    default: tree
+    group: Target
+    options:
+      - {value: tree, label: Working tree}
+      - {value: history, label: Git history}
+    binding: {kind: arg, flag: "--mode", style: space}
+
+  - key: max_commits
+    type: int
+    label: "Max commits (history mode)"
+    help: Safety cap on the commit count — the newest commits first, the cap is a note, never a silent stop
+    min: 10
+    max: 200000
+    default: 5000
+    visible_if:
+      op: eq
+      key: mode
+      value: history
+    group: Target
+    binding: {kind: arg, flag: "--max-commits", style: space}
+
+  - key: custom_rules
+    type: file
+    label: Custom rules (optional)
+    help: Extra rules in the documented YAML schema, appended after the built-in set — same format as WP Audit rules
+    extensions: [yaml, yml]
+    group: Rules
+    binding: {kind: arg, flag: "--custom-rules", style: space}
+
+  - key: max_files
+    type: int
+    label: "Max files"
+    help: Safety cap on the file count (tree mode)
+    min: 10
+    max: 100000
+    default: 20000
+    visible_if:
+      op: eq
+      key: mode
+      value: tree
+    group: Rules
+    binding: {kind: arg, flag: "--max-files", style: space}
+
+  - key: fail_on
+    type: choice
+    label: Fail on
+    help: Findings aren't failures by default — this is only for a CI gate
+    default: none
+    group: CI gate
+    options:
+      - {value: none, label: "No gate (default)"}
+      - {value: critical, label: "Exit 3 on critical"}
+      - {value: any, label: "Exit 3 on any finding"}
+    binding: {kind: arg, flag: "--fail-on", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

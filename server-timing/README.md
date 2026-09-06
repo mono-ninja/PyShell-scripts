@@ -99,7 +99,7 @@ statuses: 200×20 · size: 48.2 KB
 | `transfer` | body delivery = `total − ttfb` |
 | `total` | from start to the last byte |
 
-`--no-reuse` (default behavior): a new connection per request, so the phase
+Without `--reuse` (the default): a new connection per request, so the phase
 breakdown is meaningful for every measurement. `--reuse` measures
 keep-alive — then DNS/TCP/TLS are zero from the second request on.
 

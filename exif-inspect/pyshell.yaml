@@ -1,0 +1,97 @@
+schema: 1
+id: com.pyshell.exifinspect
+name: EXIF Inspect
+version: 0.1
+description: See what your photos say about you — the EXIF dump with GPS coordinates spelled out and linked, camera, software and dates — with optional privacy-first stripping to clean copies
+icon: lucide:camera
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 300
+
+inputs:
+  - key: input_mode
+    type: choice
+    label: Source
+    help: One photo, several selected files, or a folder
+    default: single
+    group: Input
+    options:
+      - {value: single, label: Single image}
+      - {value: multiple, label: Multiple images}
+      - {value: folder, label: Folder}
+    binding: {kind: arg, flag: "--mode", style: space}
+
+  - key: single_image
+    type: file
+    label: Image
+    help: The photo to inspect
+    extensions: [jpg, jpeg, tif, tiff, webp, png, heic, avif]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: single
+    group: Input
+    binding: {kind: arg, flag: "--single-image", style: space}
+
+  - key: multiple_images
+    type: files
+    label: Images
+    help: The photos to inspect (you can select several)
+    extensions: [jpg, jpeg, tif, tiff, webp, png, heic, avif]
+    visible_if:
+      op: eq
+      key: input_mode
+      value: multiple
+    group: Input
+    binding: {kind: arg, flag: "--input-file", style: repeat}
+
+  - key: input_folder
+    type: dir
+    label: Image folder
+    help: Every image in this folder is inspected (other files are noted as skipped)
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--input-folder", style: space}
+
+  - key: recursive
+    type: bool
+    label: Recursive (with subfolders)
+    default: false
+    visible_if:
+      op: eq
+      key: input_mode
+      value: folder
+    group: Input
+    binding: {kind: arg, flag: "--recursive", style: flag}
+
+  - key: strip
+    type: bool
+    label: Also write clean copies (strip EXIF)
+    help: Saves EXIF-free copies to the output folder — orientation is applied first so the pixels stay upright; the originals are never touched
+    default: false
+    group: Strip
+    binding: {kind: arg, flag: "--strip", style: flag}
+
+  - key: output_folder
+    type: dir
+    label: Output folder
+    help: Where the clean copies land (used only when stripping)
+    visible_if:
+      op: eq
+      key: strip
+      value: true
+    group: Strip
+    binding: {kind: arg, flag: "--output-folder", style: space}
+
+outputs:
+  artifacts:
+    - "exif_report.csv"
+    - "report.md"
+  result: markdown

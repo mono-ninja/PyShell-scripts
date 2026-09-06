@@ -1,0 +1,61 @@
+schema: 1
+id: com.pyshell.fleetcheck
+name: Fleet Check
+version: 0.1
+description: One overview of a whole portfolio of sites — HTTP status, TLS grade and certificate days, security-headers grade, WordPress version, sitemap presence — via the sibling scripts when installed, compact checks otherwise, with a baseline diff
+icon: lucide:monitor
+category: SEO
+
+needs:
+  - com.pyshell.tlsaudit
+  - com.pyshell.securityheaders
+  - com.pyshell.techstack
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 1800
+
+inputs:
+  - key: urls
+    type: multiline
+    label: Sites
+    help: One URL per line — the portfolio to check. Empty lines and #-comments are skipped
+    required: true
+    group: Fleet
+    binding: {kind: arg, flag: "--urls", style: space}
+
+  - key: workers
+    type: int
+    label: "Parallel sites"
+    help: Sites checked at once (each site runs its checks sequentially)
+    min: 1
+    max: 8
+    default: 3
+    group: Fleet
+    binding: {kind: arg, flag: "--workers", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 5
+    max: 60
+    default: 15
+    group: Fleet
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: baseline
+    type: file
+    label: "Baseline fleet.json (optional)"
+    help: A previous run's fleet.json — the report shows what improved, what slipped, what's new or gone
+    extensions: [json]
+    group: Diff
+    binding: {kind: arg, flag: "--baseline", style: space}
+
+outputs:
+  artifacts:
+    - "fleet.json"
+    - "fleet.csv"
+    - "report.md"
+  result: markdown

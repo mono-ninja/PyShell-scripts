@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.uptimemonitor
 name: Uptime Monitor
-version: 1
+version: 0.1
 description: Poll a URL for minutes and watch it live — a scrolling latency chart, uptime percentage, percentiles and downtime intervals
 icon: lucide:activity
 category: Network

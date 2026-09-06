@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.imageconverter
 name: Image Converter
-version: 1
+version: 0.1
 description: Convert images to AVIF, WebP, JPEG, PNG, TIFF, BMP with adjustable quality
 icon: lucide:image
 category: Media

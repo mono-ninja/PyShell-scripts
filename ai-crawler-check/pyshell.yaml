@@ -1,0 +1,37 @@
+schema: 1
+id: com.pyshell.aicrawlercheck
+name: AI Crawler Check
+version: 0.1
+description: "What your site gives AI crawlers — the robots.txt rules for GPTBot, ClaudeBot, PerplexityBot and the rest (who is blocked, who is allowed, who is simply not mentioned), the /llms.txt and /llms-full.txt convention, X-Robots-Tag and meta noai/noimageai — plain words, no invented standards"
+icon: lucide:brain
+category: SEO
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 60
+
+inputs:
+  - key: url
+    type: string
+    label: URL
+    help: The site to check — robots.txt, llms.txt and one page are read
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 3
+    max: 60
+    default: 15
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

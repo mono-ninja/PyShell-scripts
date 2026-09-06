@@ -1,0 +1,72 @@
+schema: 1
+id: com.pyshell.waybackcheck
+name: Wayback Check
+version: 0.1
+description: A domain's history through the archive.org CDX API — first and last snapshot, a per-year chart, and the pages that vanished (existed then, 404 now) as a redirect-map candidate list
+icon: lucide:archive
+category: Recon
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 900
+
+inputs:
+  - key: target
+    type: string
+    label: "Domain or URL"
+    help: The site whose history you want — a bare domain (example.com) or a full URL; subdomains are excluded by default (see Scope)
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--target", style: space}
+
+  - key: scope
+    type: choice
+    label: Scope
+    help: "Site (this host only) is the SEO-sensible default; Domain includes subdomains and can hit CDX rate limits on wildcard-heavy domains"
+    default: site
+    group: Target
+    options:
+      - {value: site, label: "Site — one host (default)"}
+      - {value: domain, label: "Domain — include subdomains"}
+    binding: {kind: arg, flag: "--scope", style: space}
+
+  - key: check_vanished
+    type: bool
+    label: Check for vanished pages
+    help: Fetches up to N archived URLs against the live site to find pages that existed then and 404 now — real GET requests to the target
+    default: false
+    group: Vanished pages
+    binding: {kind: arg, flag: "--check-vanished", style: flag}
+
+  - key: vanished_limit
+    type: int
+    label: "Vanished check limit"
+    help: How many archived URLs to test against the live site (oldest-last-seen first)
+    min: 1
+    max: 50
+    default: 20
+    visible_if:
+      op: eq
+      key: check_vanished
+      value: true
+    group: Vanished pages
+    binding: {kind: arg, flag: "--vanished-limit", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    help: The CDX server can be slow; 45 s accommodates a big year-scan
+    min: 5
+    max: 90
+    default: 45
+    group: Query
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "wayback_history.json"
+    - "wayback_vanished.csv"
+    - "report.md"
+  result: markdown

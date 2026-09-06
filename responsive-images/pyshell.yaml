@@ -1,0 +1,68 @@
+schema: 1
+id: com.pyshell.responsiveimages
+name: Responsive Images
+version: 0.1
+description: "One source image into a delivery-ready ladder — each requested width (default 320/640/960/1280/1920, never upscaled) rendered as AVIF + WebP + a JPEG/PNG fallback, with the ready-to-paste <picture> snippet (srcset, sizes, width/height, lazy) and the weight table: what the original weighed and what each step weighs. The delivery link after Image Converter and Image Optimizer — a proper srcset cuts image weight 40–60% in pure HTML"
+icon: lucide:smartphone
+category: Media
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 600
+
+inputs:
+  - key: source
+    type: file
+    label: Source image
+    help: The one image to build the ladder from — the original is never touched; copies land in the output folder
+    extensions: [png, jpg, jpeg, webp, avif, tif, tiff, bmp]
+    required: true
+    group: Input
+    binding: {kind: arg, flag: "--source", style: space}
+
+  - key: widths
+    type: string
+    label: Width ladder
+    help: "Comma-separated widths in pixels, ascending — default 320,640,960,1280,1920; steps wider than the source are skipped (never upscaled), and the skip is reported"
+    default: "320,640,960,1280,1920"
+    group: Ladder
+    binding: {kind: arg, flag: "--widths", style: space}
+
+  - key: sizes
+    type: string
+    label: sizes attribute
+    help: "Goes into the snippet verbatim (default 100vw). The honest warning: sizes must describe YOUR layout — with a wrong sizes the browser downloads the largest step anyway"
+    default: "100vw"
+    group: Ladder
+    binding: {kind: arg, flag: "--sizes", style: space}
+
+  - key: quality
+    type: int
+    label: Quality
+    help: Encoder quality for AVIF/WebP/the fallback, 10–95 (default 80)
+    min: 10
+    max: 95
+    default: 80
+    group: Ladder
+    binding: {kind: arg, flag: "--quality", style: space}
+
+  - key: alt
+    type: string
+    label: Alt text
+    help: Placed into the snippet's alt attribute — describe the image for screen readers and SEO
+    default: ""
+    group: Snippet
+    binding: {kind: arg, flag: "--alt", style: space}
+
+outputs:
+  artifacts:
+    - "*.avif"
+    - "*.webp"
+    - "*.jpg"
+    - "*.png"
+    - "snippet.html"
+    - "findings.json"
+    - "report.md"
+  result: markdown

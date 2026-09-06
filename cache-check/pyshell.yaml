@@ -1,0 +1,57 @@
+schema: 1
+id: com.pyshell.cachecheck
+name: Cache Check
+version: 0.1
+description: Is caching actually working — repeated requests watch Age grow and HIT/MISS flip, Cache-Control is decoded into a TTL, a conditional request checks revalidation, and cookies/Vary that bust the cache are called out — the "why is it slow" answer after Server Timing and Load Test
+icon: lucide:cloud-download
+category: Network
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 300
+
+inputs:
+  - key: url
+    type: string
+    label: URL
+    help: The page or asset to watch — the cache story is read from its response headers over several requests
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--url", style: space}
+
+  - key: request_count
+    type: int
+    label: Requests
+    help: How many plain requests to send — enough to see MISS→HIT settle and Age grow
+    min: 2
+    max: 10
+    default: 3
+    group: Probe
+    binding: {kind: arg, flag: "--requests", style: space}
+
+  - key: interval
+    type: int
+    label: "Interval (s)"
+    help: Pause between requests, so Age has time to grow
+    min: 0
+    max: 60
+    default: 1
+    group: Probe
+    binding: {kind: arg, flag: "--interval", style: space}
+
+  - key: timeout
+    type: int
+    label: "Per-request timeout (s)"
+    min: 3
+    max: 60
+    default: 15
+    group: Probe
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+outputs:
+  artifacts:
+    - "cache_results.json"
+    - "report.md"
+  result: markdown
