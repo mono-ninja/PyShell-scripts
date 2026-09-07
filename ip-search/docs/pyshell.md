@@ -67,12 +67,16 @@ method (usually traceroute), not the sum of all of them.
     public one — a sign of split-horizon DNS or interception;
   - hosting details (provider, ASN, country, PTR, SSH banner), DNS records,
     domain WHOIS, CDN/WAF detection, and traceroute.
-- Artifacts: `results.csv` (always 10 columns, including `hosting`),
-  `results.json` (full data), `dns_records.csv` (only with the `dnsrecs`
-  method), `traceroute.csv` (only with the `traceroute` method).
+- Artifacts: `results.csv` (always 11 columns, including `source_group` and
+  `hosting`), `results.json` (full data), `dns_records.csv` (only with the
+  `dnsrecs` method), `traceroute.csv` (only with the `traceroute` method).
 
 Methods that depend on missing tools (e.g. `tools` without `dig` installed,
 or DoT without `dnspython`) are marked with the `SKIPPED` status — this is not
-an error. Different methods may return the same IPs — this is normal mutual
+an error; the same status marks a method whose every answer was IPv6 while
+**IPv6 (AAAA)** was disabled. A method that ran always leaves at least one row,
+so "found nothing" is never confused with "was not selected".
+
+Different methods may return the same IPs — this is normal mutual
 cross-checking (consensus). Divergences between methods point to a CDN, load
 balancing, or local resolver tampering.

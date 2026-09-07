@@ -41,10 +41,22 @@ def log(msg: str) -> None:
     print(msg, flush=True)
 
 
+def source_note(label: str, msg: str) -> None:
+    line = f"[{label}] {msg}"
+    log(f"  {line}")
+    emit({"type": "status", "message": line})
+
+
 def source_fail(label: str, e: Exception) -> None:
-    msg = f"[{label}] error: {e}"
-    log(f"  {msg}")
+    source_note(label, f"error: {e}")
+
+
+def fail(msg: str, code: int = 1) -> None:
+    """Terminal error. Ends the bar at 100 labelled Failed: a run that died must
+    never leave the UI showing the same "Done" a finished one does."""
     emit({"type": "status", "message": msg})
+    emit({"type": "progress", "pct": 100, "message": "Failed"})
+    sys.exit(code)
 
 
 # ── HTTP session ──────────────────────────────────────────────────────────
@@ -76,20 +88,19 @@ def clean(domains: set[str]) -> set[str]:
         d = x.strip().rstrip(".").lower()
         if not DOMAIN_RE.match(d):
             continue
-        # Reject IPv4 literals (e.g. crt.sh name_value can carry the target IP);
-        # IPv6 contains ":" and already fails DOMAIN_RE.
-        try:
-            ipaddress.IPv4Address(d)
+        # A real TLD is never all digits, so this rejects IPv4 literals (crt.sh
+        # name_value can carry the target IP) — malformed ones like
+        # 999.999.999.999 included, which an ipaddress.IPv4Address check would
+        # let through as a "hostname". IPv6 has ":" and already fails DOMAIN_RE.
+        if d.rsplit(".", 1)[1].isdigit():
             continue
-        except ValueError:
-            pass
         out.add(d)
     return out
 
 
 # ── Sources ───────────────────────────────────────────────────────────────
 # Each fetch_*(ip) swallows its own exceptions and returns set() on failure so
-# one dead API cannot kill the run. Output is normalised by clean() in main().
+# one dead API cannot kill the run. Output is normalised by clean() in run().
 
 def fetch_crtsh(ip: str) -> set[str]:
     try:
@@ -117,10 +128,18 @@ def fetch_hackertarget(ip: str) -> set[str]:
             timeout=TIMEOUT,
         )
         r.raise_for_status()
-        text = r.text.strip()
-        if "error" in text.lower() or "no records" in text.lower():
+        lines = [ln.strip() for ln in r.text.splitlines() if ln.strip()]
+        # Failures arrive as a single line of prose ("error check your search
+        # parameter", "No records found", "API count exceeded - Increase Quota
+        # with Membership"); a hit list is one hostname per line. Hence the
+        # one-line test — scanning the whole body for "error" would discard a
+        # perfectly good result set that merely contains errorpages.com. Prose
+        # surfaces as a status line, so an exhausted quota does not read as
+        # "this IP hosts nothing".
+        if len(lines) == 1 and not DOMAIN_RE.match(lines[0].rstrip(".").lower()):
+            source_note("hackertarget", lines[0])
             return set()
-        return {line.strip().lower() for line in text.splitlines() if line.strip()}
+        return {ln.lower() for ln in lines}
     except Exception as e:
         source_fail("hackertarget", e)
         return set()
@@ -154,23 +173,29 @@ def fetch_shodan(ip: str, api_key: str) -> set[str]:
 
         domains: set[str] = set()
 
-        for h in data.get("hostnames", []):
-            h = h.strip().lower()
+        for h in data.get("hostnames") or []:
+            h = (h or "").strip().lower()
             if h:
                 domains.add(h)
 
-        for port_data in data.get("data", []):
-            ssl = port_data.get("ssl", {})
-            cert = ssl.get("cert", {})
-            cn = cert.get("subject", {}).get("CN", "")
-            if cn:
-                domains.add(cn.removeprefix("*.").lower())
-            for ext in cert.get("extensions", []):
-                if ext.get("name") == "subjectAltName":
-                    for part in ext.get("data", "").split(","):
-                        part = part.strip()
-                        if part.startswith("DNS:"):
-                            domains.add(part[4:].removeprefix("*.").lower())
+        for port_data in data.get("data") or []:
+            # Shodan carries explicit nulls: a non-TLS banner has "ssl": null,
+            # and the cert sub-objects can be null too. The `or` fallbacks and
+            # the per-banner catch keep one odd banner from discarding the whole
+            # source — hostnames collected above included.
+            try:
+                cert = (port_data.get("ssl") or {}).get("cert") or {}
+                cn = (cert.get("subject") or {}).get("CN") or ""
+                if cn:
+                    domains.add(cn.removeprefix("*.").lower())
+                for ext in cert.get("extensions") or []:
+                    if ext.get("name") == "subjectAltName":
+                        for part in (ext.get("data") or "").split(","):
+                            part = part.strip()
+                            if part.startswith("DNS:"):
+                                domains.add(part[4:].removeprefix("*.").lower())
+            except Exception:
+                continue
 
         return {d for d in domains if d}
     except Exception as e:
@@ -186,7 +211,9 @@ def resolve_domain(domain: str) -> Optional[list[str]]:
     which collapses round-robin / CDN domains to one arbitrary address."""
     try:
         return sorted({ai[4][0] for ai in socket.getaddrinfo(domain, None, socket.AF_INET)})
-    except socket.gaierror:
+    except (OSError, UnicodeError):
+        # gaierror (an OSError) is the ordinary case; the wider catch stops a
+        # single odd name from aborting the pass and with it the table event.
         return None
 
 
@@ -248,6 +275,132 @@ def verify_domains(
     return VerifyResult(confirmed, different, unresolved)
 
 
+# ── Run ───────────────────────────────────────────────────────────────────
+
+def run(
+    ip: str,
+    sources: list[str],
+    shodan_key: str,
+    no_verify: bool,
+    workers: int,
+    max_domains: int,
+) -> None:
+    """One lookup, start to finish. Returning normally means the run succeeded;
+    main() owns the terminal pct: 100 event on either outcome."""
+    # Checked before a single query is spent, so an unusable artifact directory
+    # costs nothing rather than discarding finished work.
+    output_dir = os.environ.get("PYSHELL_OUTPUT_DIR", ".")
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+    except OSError as e:
+        fail(f"Cannot write artifacts to {output_dir}: {e}")
+
+    if "shodan" in sources and not shodan_key:
+        sources = [s for s in sources if s != "shodan"]
+        msg = "Shodan skipped: SHODAN_API_KEY not set"
+        log(f"  {msg}")
+        emit({"type": "status", "message": msg})
+
+    log(f"Searching domains for IP: {ip}")
+    emit({"type": "status", "message": f"Target: {ip}"})
+
+    source_map = {
+        "crtsh":        (fetch_crtsh,                     "crt.sh (certificate SAN)"),
+        "hackertarget": (fetch_hackertarget,              "HackerTarget reverse IP"),
+        "viewdns":      (fetch_viewdns,                   "ViewDNS reverse IP"),
+        "shodan":       (lambda i: fetch_shodan(i, shodan_key), "Shodan host lookup"),
+    }
+
+    valid_sources = [s for s in sources if s in source_map]
+    total_sources = len(valid_sources)
+
+    if total_sources == 0:
+        emit({"type": "status", "message": "No sources to query"})
+        log("No sources to query.")
+        return
+
+    all_domains: set[str] = set()
+    completed = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {}
+        for key in valid_sources:
+            fn, label = source_map[key]
+            log(f"  [{label}] querying...")
+            futures[pool.submit(fn, ip)] = label
+        for future in concurrent.futures.as_completed(futures):
+            label = futures[future]
+            try:
+                raw = future.result()
+            except Exception as e:
+                source_fail(label, e)
+                raw = set()
+            found = clean(raw)
+            log(f"  [{label}] {len(found)} domain(s)")
+            all_domains |= found
+            completed += 1
+            emit({
+                "type": "progress",
+                "pct": (completed / total_sources) * 50,
+                "message": f"Querying {label}",
+            })
+
+    emit({"type": "progress", "pct": 50, "message": f"Found {len(all_domains)} unique domains"})
+    log(f"\nTotal unique domains found: {len(all_domains)}")
+
+    if not all_domains:
+        emit({"type": "status", "message": "No domains found"})
+        log("No domains found.")
+        return
+
+    raw_path = os.path.join(output_dir, "domains_raw.json")
+    with open(raw_path, "w") as f:
+        json.dump(sorted(all_domains), f, indent=2)
+
+    if no_verify:
+        csv_path = os.path.join(output_dir, "domains_unverified.csv")
+        with open(csv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["domain"])
+            for d in sorted(all_domains):
+                writer.writerow([d])
+        emit({
+            "type": "table",
+            "columns": ["Domain"],
+            "rows": [[d] for d in sorted(all_domains)],
+        })
+        emit({"type": "status", "message": f"{len(all_domains)} domains (unverified)"})
+        return
+
+    log("Verifying via DNS resolution...")
+    emit({"type": "status", "message": "Verifying via DNS..."})
+
+    csv_path = os.path.join(output_dir, "domains_verified.csv")
+    result = verify_domains(all_domains, ip, workers, max_domains, csv_path)
+
+    table_rows = []
+    for d in result.confirmed:
+        table_rows.append([d, ip, "confirmed"])
+    for d, addrs in result.different:
+        table_rows.append([d, ", ".join(addrs), "different"])
+    for d in result.unresolved:
+        table_rows.append([d, "", "unresolved"])
+
+    log(f"\n  Confirmed on {ip}: {len(result.confirmed)}")
+    log(f"  Different IP: {len(result.different)}")
+    log(f"  Unresolved: {len(result.unresolved)}")
+
+    emit({
+        "type": "table",
+        "columns": ["Domain", "Resolved IP", "Status"],
+        "rows": table_rows,
+    })
+    emit({
+        "type": "status",
+        "message": f"Confirmed: {len(result.confirmed)} | Different: {len(result.different)} | Unresolved: {len(result.unresolved)}",
+    })
+    log("Done!")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────
 
 def main():
@@ -255,7 +408,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Find all domains hosted on the same IP.")
     parser.add_argument("ip", help="Target IPv4 address")
-    parser.add_argument("--sources", default="crtsh hackertarget viewdns")
+    parser.add_argument("--sources", default="crtsh hackertarget")
     parser.add_argument("--no-verify", action="store_true")
     parser.add_argument("--workers", type=int, default=50, help="DNS verification threads")
     parser.add_argument("--max-domains", type=int, default=5000, help="Cap on domains to verify")
@@ -269,7 +422,12 @@ def main():
     ip = args.ip
     sources = args.sources.split() if isinstance(args.sources, str) else args.sources
     shodan_key = os.environ.get("SHODAN_API_KEY", "")
-    no_verify = args.no_verify
+
+    # The manifest bounds these two, the CLI does not: max_workers=0 raises
+    # ValueError out of ThreadPoolExecutor, and a negative cap would truncate
+    # the candidate set to nothing. 0 keeps its meaning of "no cap".
+    workers = max(1, args.workers)
+    max_domains = max(0, args.max_domains)
 
     # Strict IPv4 validation — inet_aton silently accepts short forms like
     # "1.2.3" and "127.1"; ipaddress.IPv4Address rejects them, matching the
@@ -277,119 +435,17 @@ def main():
     try:
         ipaddress.IPv4Address(ip)
     except ValueError:
-        emit({"type": "status", "message": f"Invalid IP: {ip}"})
-        sys.exit(1)
+        fail(f"Invalid IP: {ip}")
 
-    # The run must end at pct: 100 on every non-error return path.
+    # Every path ends at pct: 100 — "Done" when the run finished, "Failed" when
+    # it did not. An unconditional finally would label a traceback "Done".
     try:
-        if "shodan" in sources and not shodan_key:
-            sources = [s for s in sources if s != "shodan"]
-            msg = "Shodan skipped: SHODAN_API_KEY not set"
-            log(f"  {msg}")
-            emit({"type": "status", "message": msg})
-
-        log(f"Searching domains for IP: {ip}")
-        emit({"type": "status", "message": f"Target: {ip}"})
-
-        source_map = {
-            "crtsh":        (fetch_crtsh,                     "crt.sh (certificate SAN)"),
-            "hackertarget": (fetch_hackertarget,              "HackerTarget reverse IP"),
-            "viewdns":      (fetch_viewdns,                   "ViewDNS reverse IP"),
-            "shodan":       (lambda i: fetch_shodan(i, shodan_key), "Shodan host lookup"),
-        }
-
-        valid_sources = [s for s in sources if s in source_map]
-        total_sources = len(valid_sources)
-
-        if total_sources == 0:
-            emit({"type": "status", "message": "No sources to query"})
-            log("No sources to query.")
-            return
-
-        all_domains: set[str] = set()
-        completed = 0
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-            futures = {}
-            for key in valid_sources:
-                fn, label = source_map[key]
-                log(f"  [{label}] querying...")
-                futures[pool.submit(fn, ip)] = label
-            for future in concurrent.futures.as_completed(futures):
-                label = futures[future]
-                try:
-                    raw = future.result()
-                except Exception as e:
-                    source_fail(label, e)
-                    raw = set()
-                found = clean(raw)
-                log(f"  [{label}] {len(found)} domain(s)")
-                all_domains |= found
-                completed += 1
-                emit({
-                    "type": "progress",
-                    "pct": (completed / total_sources) * 50,
-                    "message": f"Querying {label}",
-                })
-
-        emit({"type": "progress", "pct": 50, "message": f"Found {len(all_domains)} unique domains"})
-        log(f"\nTotal unique domains found: {len(all_domains)}")
-
-        if not all_domains:
-            emit({"type": "status", "message": "No domains found"})
-            log("No domains found.")
-            return
-
-        output_dir = os.environ.get("PYSHELL_OUTPUT_DIR", ".")
-        os.makedirs(output_dir, exist_ok=True)
-        raw_path = os.path.join(output_dir, "domains_raw.json")
-        with open(raw_path, "w") as f:
-            json.dump(sorted(all_domains), f, indent=2)
-
-        if no_verify:
-            csv_path = os.path.join(output_dir, "domains_unverified.csv")
-            with open(csv_path, "w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(["domain"])
-                for d in sorted(all_domains):
-                    writer.writerow([d])
-            emit({
-                "type": "table",
-                "columns": ["Domain"],
-                "rows": [[d] for d in sorted(all_domains)],
-            })
-            emit({"type": "status", "message": f"{len(all_domains)} domains (unverified)"})
-            return
-
-        log("Verifying via DNS resolution...")
-        emit({"type": "status", "message": "Verifying via DNS..."})
-
-        csv_path = os.path.join(output_dir, "domains_verified.csv")
-        result = verify_domains(all_domains, ip, args.workers, args.max_domains, csv_path)
-
-        table_rows = []
-        for d in result.confirmed:
-            table_rows.append([d, ip, "confirmed"])
-        for d, addrs in result.different:
-            table_rows.append([d, ", ".join(addrs), "different"])
-        for d in result.unresolved:
-            table_rows.append([d, "", "unresolved"])
-
-        log(f"\n  Confirmed on {ip}: {len(result.confirmed)}")
-        log(f"  Different IP: {len(result.different)}")
-        log(f"  Unresolved: {len(result.unresolved)}")
-
-        emit({
-            "type": "table",
-            "columns": ["Domain", "Resolved IP", "Status"],
-            "rows": table_rows,
-        })
-        emit({
-            "type": "status",
-            "message": f"Confirmed: {len(result.confirmed)} | Different: {len(result.different)} | Unresolved: {len(result.unresolved)}",
-        })
-        log("Done!")
-    finally:
-        emit({"type": "progress", "pct": 100, "message": "Done"})
+        run(ip, sources, shodan_key, args.no_verify, workers, max_domains)
+    except Exception as e:
+        emit({"type": "status", "message": f"Run failed: {e}"})
+        emit({"type": "progress", "pct": 100, "message": "Failed"})
+        raise
+    emit({"type": "progress", "pct": 100, "message": "Done"})
 
 
 if __name__ == "__main__":

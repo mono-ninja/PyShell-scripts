@@ -24,7 +24,7 @@ What it does, honestly:
 
 **TCP only, and connect-only.** No UDP (unreliable to scan honestly),
 no exploit payloads, no guesses past the banner. TLS ports (443,
-8443…) show "no banner (TLS?)" — the certificate is
+8443…) show "TLS? (no plain banner)" — the certificate is
 [TLS Audit](../tls-audit)'s job, not duplicated here.
 
 Stdlib only: sockets, threads, and patience.
@@ -75,7 +75,7 @@ COMMON_PORTS: dict[int, str] = {
     8000: "HTTP alt", 8008: "HTTP alt", 8009: "HTTP alt",
     8080: "HTTP proxy/alt", 8081: "HTTP alt", 8088: "HTTP alt",
     8443: "HTTPS alt", 8888: "HTTP alt (Jupyter?)", 9000: "HTTP alt",
-    9090: "Prometheus", 5601: "Kibana", 9200: "Elasticsearch",
+    9090: "Prometheus", 5601: "Kibana",
     2082: "cPanel", 2083: "cPanel (SSL)", 2086: "WHM",
     2087: "WHM (SSL)", 2095: "webmail", 2096: "webmail (SSL)",
     10000: "Webmin/Virtualmin", 7080: "HTTP alt",
@@ -156,6 +156,13 @@ def group_for_port(port: int) -> str:
 # Port-spec parsing (pure)
 # ---------------------------------------------------------------------------
 
+def _is_port_digits(text: str) -> bool:
+    """ASCII digits only. `str.isdigit()` also says yes to '²' (which
+    `int()` then rejects, crashing the parse) and to '٤٤٣' (which it
+    silently accepts as 443) — neither is a port an operator typed."""
+    return text.isascii() and text.isdigit()
+
+
 def parse_port_spec(spec: str, port_set: str) -> tuple[list[int] | None, str]:
     """The port list for the chosen set. (ports, error) — the error is
     human, for exit 2."""
@@ -172,11 +179,11 @@ def parse_port_spec(spec: str, port_set: str) -> tuple[list[int] | None, str]:
         chunk = chunk.strip()
         if not chunk:
             return None, f"empty part in {spec!r}"
-        if chunk.isdigit():
+        if _is_port_digits(chunk):
             start = end = int(chunk)
         elif "-" in chunk:
             left, _, right = chunk.partition("-")
-            if not left.isdigit() or not right.isdigit():
+            if not _is_port_digits(left) or not _is_port_digits(right):
                 return None, f"bad range {chunk!r}"
             start, end = int(left), int(right)
         else:
@@ -243,11 +250,28 @@ def classify_banner(banner: str) -> str:
     return ""
 
 
+def _first_line(text: str) -> str:
+    """The greeting line, where there is one. Text protocols (SSH,
+    SMTP, FTP, HTTP…) end theirs with a line break, and cutting there
+    keeps a HEAD reply from dragging its whole header block into the
+    banner column. Binary greetings carry 0x0a as a payload byte —
+    MySQL's version string sits right behind one — so cut only when
+    what precedes the break is itself a printable line."""
+    for i, char in enumerate(text):
+        if char in "\r\n":
+            head = text[:i]
+            return head if head and head.isprintable() else text
+    return text
+
+
 def grab_banner(sock: socket.socket, host: str, port: int,
-                timeout: float) -> str:
+                timeout: float) -> tuple[str, str]:
     """Read the greeting; if nothing comes (HTTP servers wait for a
-    request), send a minimal HEAD and read again. Returns printable
-    bytes or ''."""
+    request), send a minimal HEAD and read again. Returns (display,
+    raw): the same greeting line printable-trimmed for the table, and
+    untouched for `classify_banner` — the protocol markers that name a
+    service (RDP's 0x03 0x00 0x00 TPKT header) do not survive being
+    turned into dots."""
     sock.settimeout(timeout)
     banner = b""
     try:
@@ -260,16 +284,32 @@ def grab_banner(sock: socket.socket, host: str, port: int,
             banner = sock.recv(128)
         except (socket.timeout, OSError):
             pass
-    text = banner.decode("utf-8", "replace")
-    # Keep it printable and single-line for the table/JSON.
+    raw = _first_line(banner.decode("utf-8", "replace"))
+    # Keep it printable for the table/JSON.
     text = "".join(c if c.isprintable() or c in "\t" else "·"
-                   for c in text).strip()
-    return text.splitlines()[0][:100] if text else ""
+                   for c in raw).strip()
+    return text[:100], raw[:100]
 
 
 # ---------------------------------------------------------------------------
 # The scan
 # ---------------------------------------------------------------------------
+
+# The manifest gives a run 1800 s. A firewalled host is the expensive
+# case — every dropped probe waits the whole timeout — and a run killed
+# at the limit leaves no report at all, so the estimate is worth saying
+# out loud while the operator can still change the numbers.
+RUNTIME_BUDGET_S = 1800
+
+
+def estimate_seconds(ports: int, ips: int, workers: int,
+                     timeout: float) -> float:
+    """Worst case: every port filtered, so every probe waits the full
+    timeout, `workers` at a time, once per IP. Open and refused ports
+    answer sooner; banner grabs on open ports add a little back."""
+    batches = -(-ports // max(1, workers))
+    return batches * timeout * max(1, ips)
+
 
 def scan_port(ip: str, port: int, timeout: float, banners: bool,
               host: str) -> PortResult:
@@ -292,8 +332,8 @@ def scan_port(ip: str, port: int, timeout: float, banners: bool,
     with sock:
         result.state = "open"
         if banners:
-            result.banner = grab_banner(sock, host, port, timeout)
-            result.service_guess = classify_banner(result.banner)
+            result.banner, raw = grab_banner(sock, host, port, timeout)
+            result.service_guess = classify_banner(raw)
             if not result.banner and not result.service_guess \
                     and port in TLS_PORTS:
                 result.service_guess = "TLS? (no plain banner)"
@@ -306,20 +346,26 @@ def scan_ports(ip: str, host: str, ports: list[int], timeout: float,
     """The whole list against one IP, results sorted by port."""
     results: list[PortResult] = []
     done = 0
+    open_n = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(scan_port, ip, port, timeout, banners,
                                host): port for port in ports}
         for future in as_completed(futures):
+            port = futures[future]
+            try:
+                result = future.result()
+            except Exception:  # a worker crash is a fact, not a death
+                result = PortResult(port=port, state="filtered",
+                                    service=COMMON_PORTS.get(port, ""),
+                                    group=group_for_port(port))
+            results.append(result)
             done += 1
+            open_n += result.state == "open"
+            # Count the result first — a bar that says "2 open" while
+            # the report says 3 is the bar lying about the last probe.
             if done % max(1, len(ports) // 100) == 0 or done == len(ports):
-                open_n = sum(1 for r in results if r.state == "open")
                 progress(int(100 * done / len(ports)),
                          f"{done}/{len(ports)} · {open_n} open")
-            try:
-                results.append(future.result())
-            except Exception:  # a worker crash is a fact, not a death
-                results.append(PortResult(port=futures[future],
-                                          state="filtered"))
     results.sort(key=lambda r: r.port)
     return results
 
@@ -533,6 +579,20 @@ def main(argv: list[str] | None = None) -> int:
         f" ({args.port_set} set, {args.workers} workers, "
         f"{args.timeout}s per port)")
     status(f"{len(ports):,} ports on {len(ips)} IP(s)")
+
+    budget = estimate_seconds(len(ports), len(ips), args.workers,
+                              args.timeout)
+    if budget > RUNTIME_BUDGET_S * 0.8:
+        warning = (
+            f"a firewalled host would make this take up to "
+            f"{budget / 60:.0f} min against a "
+            f"{RUNTIME_BUDGET_S // 60} min run limit — and a run killed "
+            f"at the limit leaves no report at all. Raise the "
+            f"concurrency, lower the per-port timeout, or scan a "
+            f"smaller port set.")
+        log(f"⚠ {warning}")
+        status(f"⚠ up to {budget / 60:.0f} min against a "
+               f"{RUNTIME_BUDGET_S // 60} min limit")
 
     per_ip: dict[str, list[PortResult]] = {}
     for i, ip in enumerate(ips, 1):

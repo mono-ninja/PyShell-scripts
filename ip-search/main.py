@@ -60,7 +60,7 @@ MULTI_PART_SUFFIXES = {
     "co.jp", "co.kr", "co.nz", "co.in", "co.id", "co.th", "co.za",
     "co.il", "co.at", "com.au", "com.br", "com.cn", "com.tw", "com.sg",
     "com.mx", "com.ar", "com.hk", "com.my", "com.tr", "com.pl", "com.es",
-    "com.tw", "net.au", "org.au", "edu.au", "eu.org",
+    "net.au", "org.au", "edu.au", "eu.org",
 }
 
 # Org-name fragments that mark a CDN edge; SSH banner grab is skipped for these.
@@ -114,14 +114,18 @@ def md_escape(s):
 def source_group(source):
     """Collapse a method's descriptive *source* into an independent origin."""
     s = (source or "").lower()
+    # Observed-peer sources are built from the *target* host ("port 443",
+    # "https://<host>"), so they must be matched before the resolver-name
+    # checks below — otherwise a target such as cloudflare.com or google.com
+    # is credited to that public resolver and the divergence analysis breaks.
+    if s.startswith("port ") or s.startswith("https://") or s.startswith("http://"):
+        return "observed peer"
     if "google" in s or "8.8.8.8" in s:
         return "Google (8.8.8.8)"
     if "cloudflare" in s or "1.1.1.1" in s:
         return "Cloudflare (1.1.1.1)"
     if "dns.sb" in s:
         return "DNS.SB"
-    if s.startswith("port ") or s.startswith("https://") or s.startswith("http://"):
-        return "observed peer"
     return "local resolver"
 
 
@@ -239,6 +243,9 @@ def m_getaddrinfo(host, timeout, ipv6):
         out.append(result("socket.getaddrinfo", "system resolver", "", "",
                           status="ERROR", details=type(e).__name__ + ": " + str(e),
                           ms=(time.monotonic() - t0) * 1000))
+    if not out:
+        out.append(result("socket.getaddrinfo", "system resolver", "", "",
+                          status="SKIPPED", details="all answers were IPv6; excluded by --ipv6 no"))
     return out
 
 
@@ -292,13 +299,18 @@ def m_dnspython_resolver(host, timeout, ipv6):
                                           ttl=rrset.ttl, ms=(time.monotonic() - t0) * 1000))
         except dns.resolver.NoAnswer:
             pass
-        except dns.resolver.NXDOMAIN as e:
+        except dns.resolver.NXDOMAIN:
             out.append(result("dnspython", "system resolver", "", rdtype,
                               status="ERROR", details="NXDOMAIN", ms=(time.monotonic() - t0) * 1000))
         except Exception as e:
             out.append(result("dnspython", "system resolver", "", rdtype,
                               status="ERROR", details=type(e).__name__ + ": " + str(e),
                               ms=(time.monotonic() - t0) * 1000))
+    if not out:
+        # Every rdtype came back NoAnswer: the name exists but carries no
+        # address. dig/host/DoH all report that, so dnspython must too.
+        out.append(result("dnspython", "system resolver", "", "",
+                          status="ERROR", details="no records"))
     return out
 
 
@@ -312,7 +324,12 @@ def m_dnspython_udp(host, timeout, ipv6, server, label):
         try:
             q = dns.message.make_query(host, rdtype)
             resp = dns.query.udp(q, server, timeout=timeout)
-            for ip, rtype, ttl in parse_dns_response(resp):
+            records = parse_dns_response(resp)
+            if not records:
+                out.append(result("dnspython (raw UDP)", label, "", rdtype,
+                                  status="ERROR", details="no records",
+                                  ms=(time.monotonic() - t0) * 1000))
+            for ip, rtype, ttl in records:
                 out.append(result("dnspython (raw UDP)", label, ip, rtype,
                                   ttl=ttl, ms=(time.monotonic() - t0) * 1000))
         except Exception as e:
@@ -400,7 +417,12 @@ def m_dot(host, timeout, ipv6, label, server):
         t0 = time.monotonic()
         try:
             resp, note = _dot_query(host, rdtype, server, timeout)
-            for ip, rtype, ttl in parse_dns_response(resp):
+            records = parse_dns_response(resp)
+            if not records:
+                out.append(result("DNS-over-TLS", label, "", rdtype,
+                                  status="ERROR", details="no records; " + note,
+                                  ms=(time.monotonic() - t0) * 1000))
+            for ip, rtype, ttl in records:
                 out.append(result("DNS-over-TLS", label, ip, rtype, ttl=ttl,
                                   details=note, ms=(time.monotonic() - t0) * 1000))
         except Exception as e:
@@ -427,6 +449,9 @@ def m_socket_connect(host, timeout, ipv6):
             out.append(result("TCP socket connect", "port %d" % port, "", "",
                               status="ERROR", details=type(e).__name__ + ": " + str(e),
                               ms=(time.monotonic() - t0) * 1000))
+    if not out:
+        out.append(result("TCP socket connect", "port 443/80", "", "",
+                          status="SKIPPED", details="all answers were IPv6; excluded by --ipv6 no"))
     return out
 
 
@@ -441,8 +466,11 @@ def m_httpclient(host, timeout, ipv6):
             else:
                 conn = http.client.HTTPConnection(host, port, timeout=timeout)
             conn.request("HEAD", "/", headers={"User-Agent": USER_AGENT})
-            conn.getresponse()
+            # Read the peer *before* getresponse(): http.client hands the
+            # socket to the response and sets conn.sock = None as soon as it
+            # sees "Connection: close", which many servers send on HEAD.
             ip = conn.sock.getpeername()[0]
+            conn.getresponse()
             rtype = "AAAA" if ":" in ip else "A"
             if rtype == "AAAA" and not ipv6:
                 continue
@@ -459,6 +487,9 @@ def m_httpclient(host, timeout, ipv6):
                     conn.close()
                 except Exception:
                     pass
+    if not out:
+        out.append(result("http.client", "https://" + host, "", "",
+                          status="SKIPPED", details="all answers were IPv6; excluded by --ipv6 no"))
     return out
 
 
@@ -480,7 +511,8 @@ def m_dig(host, timeout, ipv6):
     for rdtype in (["A", "AAAA"] if ipv6 else ["A"]):
         t0 = time.monotonic()
         try:
-            cmd = ["dig", "+noall", "+answer", "+time=" + str(timeout), host, rdtype]
+            cmd = ["dig", "+noall", "+answer", "+tries=1",
+                   "+time=" + str(timeout), host, rdtype]
             proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 5)
             found = False
             for line in proc.stdout.splitlines():
@@ -626,6 +658,9 @@ def m_nslookup(host, timeout, ipv6):
             out.append(result("nslookup", "system tool", "", rdtype,
                               status="ERROR", details=str(e),
                               ms=(time.monotonic() - t0) * 1000))
+    if not out:
+        out.append(result("nslookup", "system tool", "", "",
+                          status="SKIPPED", details="all answers were IPv6; excluded by --ipv6 no"))
     return out
 
 
@@ -658,18 +693,19 @@ def parse_rdap(data):
         vcard_arr = entity.get("vcardArray", [])
         vcard = vcard_arr[1] if len(vcard_arr) > 1 else []
         for entry in vcard:
-            if entry[0] == "fn" and ("registrant" in roles or "administrative" in roles):
+            if (entry[0] == "fn" and not org_name
+                    and ("registrant" in roles or "administrative" in roles)):
                 org_name = entry[3] if len(entry) > 3 else ""
-            if entry[0] == "adr":
+            if entry[0] == "adr" and not adr_label:
                 params = entry[1] if len(entry) > 1 else {}
                 if isinstance(params, dict) and "label" in params:
                     adr_label = params["label"]
         handle = entity.get("handle", "")
-        if handle.startswith("AS") and handle[2:].isdigit():
+        if not asn and handle.startswith("AS") and handle[2:].isdigit():
             asn = handle
-        for sub in entity.get("entities", []):
-            sub_handle = sub.get("handle", "")
-            if sub_handle.startswith("AS") and sub_handle[2:].isdigit():
+        for sub_entity in entity.get("entities", []):
+            sub_handle = sub_entity.get("handle", "")
+            if not asn and sub_handle.startswith("AS") and sub_handle[2:].isdigit():
                 asn = sub_handle
     if not country and adr_label:
         lines = [l.strip() for l in adr_label.split("\n") if l.strip()]
@@ -785,8 +821,6 @@ def hosting_lookup(ip, timeout, do_ssh, ssh_port, rdap_cache=None):
         try:
             data = rdap_lookup(ip, timeout)
             info.update(parse_rdap(data))
-            if rdap_cache:
-                rdap_cache.store(ip, info)
         except urllib.error.HTTPError as e:
             info["error"] = "RDAP HTTP %d" % e.code
         except Exception as e:
@@ -799,6 +833,11 @@ def hosting_lookup(ip, timeout, do_ssh, ssh_port, rdap_cache=None):
                 info["as_name"] = asn_info["as_name"]
             if asn_info.get("error") and not info["error"]:
                 info["error"] = "ASN: " + asn_info["error"]
+        # Store only now: the ASN backfill above never runs for a cache hit,
+        # so caching before it would strand every later IP of this network
+        # without an ASN.
+        if rdap_cache:
+            rdap_cache.store(ip, info)
     info["ptr"] = ptr_lookup(ip)
     if do_ssh:
         org_low = (info.get("org") or "").lower()
@@ -853,8 +892,8 @@ def m_dns_records(host, timeout):
         for rdtype in DNSREC_TYPES:
             t0 = time.monotonic()
             try:
-                cmd = ["dig", "+noall", "+answer", "+time=" + str(timeout),
-                       queried, rdtype]
+                cmd = ["dig", "+noall", "+answer", "+tries=1",
+                       "+time=" + str(timeout), queried, rdtype]
                 proc = subprocess.run(cmd, capture_output=True, text=True,
                                       timeout=timeout + 5)
                 found = False
@@ -954,7 +993,7 @@ CDN_SIGNATURES = [
     ("x-vercel-proxy", "", "Vercel"),
     ("x-sucuri-id", "", "Sucuri WAF"),
     ("x-drupal-cache", "", "Drupal"),
-    ("x-github-request", "", "GitHub"),
+    ("x-github-request-", "", "GitHub"),
     ("fly-request-id", "", "Fly.io"),
     ("x-bunnycdn-", "", "BunnyCDN"),
     ("x-keycdn-", "", "KeyCDN"),
@@ -969,6 +1008,16 @@ WAF_SIGNATURES = [
     ("cf-ray", "Cloudflare WAF"),
     ("x-waf-", "WAF"),
 ]
+
+
+def header_matches(header, sig):
+    """Match a lower-cased header name against a signature name.
+
+    A signature ending in ``-`` is a prefix (``x-cdn-`` → ``x-cdn-pop``);
+    anything else must match exactly, so ``server`` no longer swallows
+    ``server-timing``.
+    """
+    return header.startswith(sig) if sig.endswith("-") else header == sig
 
 
 def m_cdn_detect(host, timeout):
@@ -1003,18 +1052,20 @@ def m_cdn_detect(host, timeout):
                 except Exception:
                     pass
 
-    for h_name, h_val in info["headers"].items():
-        hl = h_name.lower()
-        vl = h_val.lower()
-        for sig_h, sig_v, cdn_name in CDN_SIGNATURES:
-            if hl == sig_h or hl.startswith(sig_h):
-                if not sig_v or sig_v in vl:
-                    if not info["cdn"]:
-                        info["cdn"] = cdn_name
-        for sig_h, waf_name in WAF_SIGNATURES:
-            if hl == sig_h or hl.startswith(sig_h):
-                if not info["waf"]:
-                    info["waf"] = waf_name
+    # Signatures are the outer loop so that CDN_SIGNATURES order is the
+    # precedence. With headers outside, the winner was whichever header the
+    # server happened to send first — a Cloudflare site that also sets
+    # X-Powered-By: Express was reported as "Express".
+    lowered = [(k.lower(), (v or "").lower()) for k, v in info["headers"].items()]
+    for sig_h, sig_v, cdn_name in CDN_SIGNATURES:
+        if any(header_matches(hl, sig_h) and (not sig_v or sig_v in vl)
+               for hl, vl in lowered):
+            info["cdn"] = cdn_name
+            break
+    for sig_h, waf_name in WAF_SIGNATURES:
+        if any(header_matches(hl, sig_h) for hl, _ in lowered):
+            info["waf"] = waf_name
+            break
 
     if not info["cdn"] and info["server"]:
         sl = info["server"].lower()
@@ -1045,6 +1096,11 @@ def m_cdn_detect(host, timeout):
 
 # --- Traceroute ---
 
+def _is_rtt_number(token):
+    """True for a bare latency value such as ``12``, ``1.234`` or ``<1``."""
+    return bool(re.match(r"^<?\d+(\.\d+)?$", token))
+
+
 def _parse_traceroute_lines(lines, is_win):
     """Parse traceroute/tracert output lines into hop dicts."""
     hops = []
@@ -1063,20 +1119,28 @@ def _parse_traceroute_lines(lines, is_win):
                 ip = ""
                 hostname = ""
                 ms_vals = []
+                # "Request timed out." is prose, not a hostname.
+                timed_out = "request timed out" in line.lower()
                 rest = parts[1:]
                 i = 0
                 while i < len(rest):
                     p = rest[i]
-                    if p == "*" or (re.match(r"^\d+ms$", p) or re.match(r"^\d+\s+ms$", p)):
-                        ms_vals.append(p)
-                        if p == "*" and i + 1 < len(rest) and rest[i + 1] == "ms":
-                            i += 1
+                    if p == "*":
+                        ms_vals.append("*")
+                    elif (_is_rtt_number(p)
+                          and i + 1 < len(rest) and rest[i + 1] == "ms"):
+                        # tracert writes the RTT as two tokens: "12" "ms".
+                        ms_vals.append(p + " ms")
+                        i += 1
+                    elif p.startswith("[") and p.endswith("]"):
+                        ip = p[1:-1]
                     elif is_ip(p):
                         ip = p
-                    elif p != "ms":
-                        if not hostname:
-                            hostname = p
+                    elif p != "ms" and not timed_out and not hostname:
+                        hostname = p
                     i += 1
+                if hostname == ip:
+                    hostname = ""
                 hops.append({"hop": hop_num, "ip": ip, "hostname": hostname,
                              "ms": " ".join(ms_vals) if ms_vals else "*"})
         else:
@@ -1088,30 +1152,30 @@ def _parse_traceroute_lines(lines, is_win):
                 ip = ""
                 hostname = ""
                 rest = parts[1:]
-                i = 0
-                while i < len(rest):
-                    p = rest[i]
-                    if p.startswith("(") and p.endswith(")"):
+                # traceroute prints the hop as "name (ip)", and repeats the
+                # address as the name when there is no reverse DNS — in which
+                # case the hostname column stays empty rather than echoing it.
+                for i, p in enumerate(rest):
+                    if p.startswith("(") and p.endswith(")") and is_ip(p[1:-1]):
                         ip = p[1:-1]
-                    elif is_ip(p) and not ip:
-                        ip = p
-                        if not hostname:
-                            hostname = p
-                    elif p.endswith("ms"):
-                        pass
-                    elif not p.replace(".", "").replace("-", "").isalnum():
-                        pass
-                    else:
-                        if not hostname and not is_ip(p):
-                            hostname = p
-                    i += 1
+                        prev = rest[i - 1] if i else ""
+                        if prev and prev != ip and not is_ip(prev):
+                            hostname = prev
+                        break
+                if not ip:
+                    for p in rest:
+                        if is_ip(p):
+                            ip = p
+                            break
                 ms_vals = []
                 for j, p in enumerate(rest):
-                    if p == "ms" and j > 0:
+                    # RTTs are "1.234 ms"; guarding on a numeric value keeps a
+                    # hop named e.g. "ae1.ams" out of the latency column.
+                    if p == "ms" and j > 0 and _is_rtt_number(rest[j - 1]):
                         ms_vals.append(rest[j - 1] + " ms")
-                    elif p.endswith("ms") and p != "ms":
+                    elif p != "ms" and p.endswith("ms") and _is_rtt_number(p[:-2]):
                         ms_vals.append(p)
-                    elif p == "*" and not ms_vals:
+                    elif p == "*":
                         ms_vals.append("*")
                 hops.append({"hop": hop_num, "ip": ip, "hostname": hostname,
                              "ms": " ".join(ms_vals) if ms_vals else "*"})
@@ -1454,13 +1518,15 @@ def save_artifacts(host, results, methods, output_dir, hosting_map=None, analysi
     csv_path = os.path.join(output_dir, "results.csv")
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
-        headers = ["method", "source", "ip", "value", "type", "ttl",
-                   "status", "details", "ms", "hosting"]
+        headers = ["method", "source", "source_group", "ip", "value", "type",
+                   "ttl", "status", "details", "ms", "hosting"]
         writer.writerow(headers)
         for r in results:
-            writer.writerow([r["method"], r["source"], r["ip"], r["value"],
-                             r["type"], r["ttl"], r["status"], r["details"],
-                             r["ms"], r.get("hosting", "")])
+            writer.writerow([r["method"], r["source"],
+                             r.get("source_group", source_group(r["source"])),
+                             r["ip"], r["value"], r["type"], r["ttl"],
+                             r["status"], r["details"], r["ms"],
+                             r.get("hosting", "")])
 
     if analysis:
         if "dns_records" in analysis:

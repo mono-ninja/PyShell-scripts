@@ -64,9 +64,9 @@ PYSHELL_OUTPUT_DIR=./out python3 main.py --url example.com
   section (IPs seen only by the local resolver are a sign of split-horizon
   DNS or interception), then hosting details, DNS records, WHOIS,
   CDN/WAF detection, and the traceroute.
-- **Artifacts** — `results.csv` (always 10 columns, including `hosting`),
-  `results.json` (full data), `dns_records.csv` (with `dnsrecs`),
-  `traceroute.csv` (with `traceroute`).
+- **Artifacts** — `results.csv` (always 11 columns, including `source_group`
+  and `hosting`), `results.json` (full data), `dns_records.csv` (with
+  `dnsrecs`), `traceroute.csv` (with `traceroute`).
 
 ## Exit codes
 

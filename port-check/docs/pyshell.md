@@ -46,6 +46,14 @@ active-traffic exception in the collection (after
   good internet default; 0.5–1 s is plenty on a LAN.
 - **Concurrency** — ports probed in parallel (default 300).
 
+A run gets 30 minutes. Before probing anything the script prices the
+worst case — every port filtered, so every probe waits the whole
+timeout — as `ports ÷ concurrency × timeout`, per IP, and warns when
+that approaches the limit: a run killed at the limit leaves no report
+at all. The full range against four round-robin IPs, or a 10 s
+timeout, gets there; raise the concurrency, lower the timeout, or
+scan a smaller set.
+
 ---
 
 ## Result

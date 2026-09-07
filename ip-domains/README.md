@@ -10,11 +10,11 @@ The target itself is never contacted — only third-party APIs.
 | Source | Method | Notes |
 |---|---|---|
 | crt.sh | Certificate SAN fields | Weak reverse-IP: finds certs issued for the IP literal, not hosted domains |
-| HackerTarget | Reverse IP | No key required |
-| ViewDNS | Reverse IP | No key required |
+| HackerTarget | Reverse IP | No key required; the free tier caps a reply at 500 domains without saying so |
+| ViewDNS | Reverse IP | Off by default: the free endpoint sits behind a Cloudflare challenge and answers 403 to any non-browser client |
 | Shodan | Host database lookup | Requires `SHODAN_API_KEY` |
 
-The three keyless sources are enabled by default. A failing source is skipped —
+crt.sh and HackerTarget are enabled by default. A failing source is skipped —
 one dead API never kills the run. Every candidate is then confirmed by forward
 DNS resolution and bucketed as `confirmed` (points at the target IP),
 `different` (resolves elsewhere) or `unresolved`.
@@ -36,12 +36,12 @@ shown in PyShell's **Docs** panel (⌘D).
 pip install -r requirements.txt
 
 python3 main.py 93.184.216.34
-python3 main.py 93.184.216.34 --sources "crtsh hackertarget viewdns shodan" --no-verify
+python3 main.py 93.184.216.34 --sources "crtsh hackertarget shodan" --no-verify
 ```
 
 | Flag | Meaning | Default |
 |---|---|---|
-| `--sources` | Space-separated list of sources | `crtsh hackertarget viewdns` |
+| `--sources` | Space-separated list of sources | `crtsh hackertarget` |
 | `--no-verify` | Skip forward DNS verification, emit raw results | off |
 | `--workers` | Parallel DNS resolution threads | 50 |
 | `--max-domains` | Cap on domains sent to verification (excess truncated) | 5000 |
@@ -63,7 +63,8 @@ Artifacts (written to `PYSHELL_OUTPUT_DIR`, not next to the script):
 
 - `0` — the lookups ran, whatever they found. An IP with no domains is a
   successful (if uninteresting) result.
-- `1` — the input is not a valid IPv4 address.
+- `1` — the input is not a valid IPv4 address, or `PYSHELL_OUTPUT_DIR` cannot
+  be written (checked before any query is sent).
 - `2` — invalid command line (missing target, unknown flag).
 
 ## Legal note

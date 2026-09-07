@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.portcheck
 name: Port Check
-version: 0.1
+version: 1.0
 description: TCP port scan of a host you own — the common-service set, your own port spec, or the full range — with banner grabbing, service guessing and an attack-surface report; gated by an ownership confirmation like Load Test
 icon: lucide:wifi
 category: Security
