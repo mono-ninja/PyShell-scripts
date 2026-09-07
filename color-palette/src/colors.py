@@ -1,9 +1,9 @@
 """src/colors.py — parse, convert, measure, group. Pure; ported from
-the standalone colorPallet tool. Tests live here.
+the standalone colorPallet tool.
 
 The CSS named-color table, every CSS color syntax (`#rgb`, `#rrggbb`,
 `#rrggbbaa`, `rgb()/rgba()` with numbers or percentages, `hsl()/hsla()`,
-named), the HSL perceptual distance, and the grouping that folds
+named), the OKLab perceptual distance, and the grouping that folds
 near-identical colors (every `#333`-vs-`#333333`-vs-`rgb(51,51,51)`)
 into one group with a representative.
 """
@@ -83,10 +83,18 @@ CSS_NAMED_COLORS: dict[str, str | None] = {
 
 
 def rgb_to_hex(r, g, b) -> str:
-    return f"#{int(r):02X}{int(g):02X}{int(b):02X}"
+    """Three channels → #RRGGBB, clipped into 0–255 on the way. An
+    out-of-gamut channel used to render as `#17E-80-80`, and every
+    later reader of that string died on it."""
+    r, g, b = (max(0, min(255, int(v))) for v in (r, g, b))
+    return f"#{r:02X}{g:02X}{b:02X}"
 
 
 def hsl_to_hex(h: float, s: float, l: float) -> str:
+    """HSL → #RRGGBB. Saturation and lightness are clamped the way
+    `_css_channel` clamps `rgb()`: a stylesheet carrying
+    `hsl(0 200% 50%)` is out of gamut, not a reason to fail."""
+    s, l = max(0.0, min(100.0, s)), max(0.0, min(100.0, l))
     r, g, b = colorsys.hls_to_rgb((h % 360) / 360, l / 100, s / 100)
     return rgb_to_hex(round(r * 255), round(g * 255), round(b * 255))
 
@@ -96,16 +104,30 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
 
 
-def rgb_to_hsl(r: float, g: float, b: float) -> tuple[float, float, float]:
-    h, l, s = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
-    return h * 360, s * 100, l * 100
-
-
 def luminance(hex_color: str) -> float:
     """0..1 perceived brightness (Rec. 601 luma) — powers the dark/light
     label in the report."""
     r, g, b = (x / 255 for x in hex_to_rgb(hex_color))
     return 0.299 * r + 0.587 * g + 0.114 * b
+
+
+def hex_to_oklab(hex_color: str) -> tuple[float, float, float]:
+    """#RRGGBB → OKLab (the spec's matrices) — the inverse of
+    `_oklab_to_hex`, so a color parsed out of `oklch()` and the same
+    color written as hex measure identically."""
+    r, g, b = (_linear(x / 255) for x in hex_to_rgb(hex_color))
+    long = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
+    med = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
+    short = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
+    l_, m_, s_ = math.cbrt(long), math.cbrt(med), math.cbrt(short)
+    return (0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+            1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+            0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_)
+
+
+def _linear(v: float) -> float:
+    """One sRGB channel (0..1) with the transfer curve removed."""
+    return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
 
 
 # ─── parsing any CSS color value ───────────────────────────────────────
@@ -118,9 +140,10 @@ def parse_color(value: str) -> str | None:
     Legacy comma syntax and the modern space syntax both parse
     (`rgb(0 0 0 / 50%)`, `hsl(210 100% 50%)` — what Tailwind and every
     current framework emit), plus `#RGB`/`#RGBA`/`#RRGGBB`/`#RRGGBBAA`
-    and `oklch()`/`oklab()`. `var()` and `color-mix()` stay None on
-    purpose: resolving them needs the whole cascade, and a guess is
-    worse than an honest gap. Kept in sync with a11y-check/main.py.
+    and `oklch()`/`oklab()`. `var()` and `color-mix()` stay None here:
+    a reference is not a color. What a `var()` *resolves* to is settled
+    one layer up, in `extract.resolve_custom_properties`. Kept in sync
+    with a11y-check/main.py.
     """
     value = (value or '').strip().lower()
     if not value:
@@ -244,21 +267,24 @@ def _srgb_channel(v: float) -> int:
 
 
 def color_distance(hex1: str, hex2: str) -> float:
-    """Perceptual distance in HSL space (0..1 per axis, hue wrapped)."""
-    h1, s1, l1 = rgb_to_hsl(*hex_to_rgb(hex1))
-    h2, s2, l2 = rgb_to_hsl(*hex_to_rgb(hex2))
-    dh = min(abs(h1 - h2), 360 - abs(h1 - h2)) / 180
-    ds = abs(s1 - s2) / 100
-    dl = abs(l1 - l2) / 100
-    return math.sqrt(dh ** 2 + ds ** 2 + dl ** 2)
+    """Perceptual distance — ΔE in OKLab. HSL was the obvious metric
+    and the wrong one: it weighs hue and saturation the same however
+    little of either a color has, so `#FFFFFF` against `#FFFEFE`
+    scored a flat 1.0 — two whites nobody can tell apart, filed as
+    opposites, and every near-black and near-white palette came back
+    shattered. OKLab is near-uniform, so one threshold holds at both
+    ends of the lightness range as well as in the middle."""
+    return math.dist(hex_to_oklab(hex1), hex_to_oklab(hex2))
 
 
 def group_similar_colors(color_counts: dict[str, int],
-                         threshold: float = 0.12) -> list[dict]:
+                         threshold: float = 0.085) -> list[dict]:
     """Fold visually similar colors into groups (most-used first; the
     group's representative is its most-used member). Returns
     [{representative, count, variants: [{color, count}]}] sorted by
-    count."""
+    count. `threshold` is ΔE in OKLab, tuned to keep the merges the
+    HSL metric got right (`#FFFFFF` with `#EEEEEE`, `#0D6EFD` with
+    `#3D8BFD`) while catching the pairs it missed."""
     colors = sorted(color_counts.items(), key=lambda x: (-x[1], x[0]))
     groups: list[dict] = []
     for hex_color, count in colors:

@@ -9,7 +9,9 @@ A port of the standalone colorPallet tool, reshaped for the
 collection's one-fetch philosophy (same as [Page SEO
 Audit](../../page-seo-audit)): the page is fetched once, its inline
 `<style>` blocks and `style="…"` attributes are read, and each linked
-stylesheet is fetched once — politely capped.
+stylesheet is fetched once — politely capped. Relative links resolve
+against the URL the page finally answered from (and its `<base href>`),
+so a site that redirects keeps its stylesheets.
 
 ---
 
@@ -33,7 +35,7 @@ stylesheets aren't followed either.
   usually lives).
 - **Max stylesheets** — how many linked CSS files to read (default
   25). A single stylesheet over 2 MB is skipped and reported, not
-  read.
+  read; a page over 5 MB is not read at all.
 - **Per-request timeout (s)** — each fetch gets this long.
 
 ### Report
@@ -62,21 +64,32 @@ stylesheets aren't followed either.
   `oklch()`/`oklab()`, hue units `deg`/`grad`/`rad`/`turn`, and all 148
   named colors (incl. `rebeccapurple`; `transparent`/`inherit`/
   `currentColor` are keywords, not colors, and drop out).
-- **What is deliberately *not* read**: a `var(--brand)` or
-  `color-mix()` reference resolves only against the whole cascade, so
-  it is left out rather than guessed at — but a literal fallback still
-  counts (`var(--brand, #FF0000)` → `#FF0000`), as do literals written
-  inside a `color-mix()`. Custom-property *names*
+- **Custom properties are resolved where they are unambiguous**: the
+  stylesheets are read twice, once for `--token: <literal color>`
+  definitions and once for the colors. A token the page defines
+  exactly once resolves every `var()` that references it, so a
+  token-driven site reports the palette it paints rather than an empty
+  one. A token redefined per theme (`:root` light, `.dark` dark) needs
+  the whole cascade to settle, so it stays unresolved — as does
+  `color-mix()`. A literal fallback still counts on its own
+  (`var(--never-defined, #FF0000)` → `#FF0000`), as do literals
+  written inside a `color-mix()`. Custom-property *names*
   (`var(--brand-red-500)`), `url()` paths, CSS comments and at-rule
   preludes (`@supports (color: color-mix(in lab, red, red))`) are never
   mistaken for colors.
 - **Syntax variants are normalized at parse time** (`#333`, `#333333`
   and `rgb(51,51,51)` are one color); **grouping folds NEAR colors**
-  (a hand-tuned `#343434` next to `#333333`) by perceptual HSL
-  distance — the group's representative is its most-used member.
-- **Categories come from the property**: `background`/`background-color`
-  → backgrounds, `color` → text, `border*`/`outline*` → borders,
-  `*-shadow` → shadows, `fill`/`stroke`/`stop-color` → SVG & icons.
+  (a hand-tuned `#343434` next to `#333333`) by perceptual distance —
+  ΔE in OKLab, which holds at the ends of the lightness range as well
+  as in the middle, where HSL filed `#FFFFFF` and `#FFFEFE` as
+  opposites. The group's representative is its most-used member.
+- **Categories come from the property**, shorthands included:
+  `background*`/`accent-color`/`scrollbar-color` → backgrounds,
+  `color`/`caret-color`/`text-decoration*`/`text-emphasis*` → text,
+  `border*` (`border-bottom: 1px solid #ddd` too)/`outline*`/
+  `column-rule*` → borders, `*-shadow`/`filter` → shadows,
+  `fill`/`stroke`/`stop-color`/`flood-color`/`lighting-color` → SVG &
+  icons.
 - **Tone** (dark/light) is Rec. 601 luma — a quick readability hint,
   not a WCAG contrast verdict.
 
@@ -84,5 +97,6 @@ stylesheets aren't followed either.
 
 - `0` — the run completed (an empty palette is an honest finding, not
   a failure).
-- `1` — the page never answered: there was nothing to read.
+- `1` — the page could not be read: it never answered, or it is over
+  5 MB.
 - `2` — bad arguments (no scheme/host).

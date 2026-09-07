@@ -34,7 +34,8 @@ def build_chart_event(palette: dict) -> dict:
 
 
 def build_table_event(palette: dict, top_n: int) -> dict:
-    """The most-used colors overall: hex, category, uses, variants."""
+    """The report table: every category's most-used colors in
+    CATEGORY_ORDER, with hex, uses, variants, tone and role."""
     rows = []
     for category in CATEGORY_ORDER:
         for i, group in enumerate((palette.get(category) or [])[:top_n]):

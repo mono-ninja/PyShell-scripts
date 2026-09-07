@@ -9,6 +9,13 @@ per category, a table of the most-used colors, and two artifacts —
 `palette.css` (ready-to-paste `:root` variables) and `palette.json`
 (every group, machine-readable).
 
+Custom properties get a pass of their own first: a token the page
+defines exactly once with a literal color resolves every `var()` that
+references it, so a token-driven site reports the palette it actually
+paints instead of an empty one. A token redefined per theme stays
+unresolved — that needs the whole cascade, and a guess is worse than
+an honest gap.
+
 **Static CSS only, v1.** Colors painted by JavaScript at runtime are
 not seen — the docs say so, and an empty palette is reported honestly
 with that explanation instead of guessed at.
@@ -30,35 +37,36 @@ import requests
 
 from src.colors import group_similar_colors
 from src.events import emit, log, status
-from src.extract import extract_colors_from_css, extract_inline_styles, \
-    find_stylesheet_links, find_style_blocks
+from src.extract import collect_custom_properties, extract_colors_from_css, \
+    extract_inline_styles, find_base_href, find_stylesheet_links, \
+    find_style_blocks, resolve_custom_properties
 from src.report import build_chart_event, build_markdown, build_table_event, \
     write_artifacts
 
 USER_AGENT = "PyShell-color-palette/1.0"
-MAX_CSS_BYTES = 2_000_000  # a single stylesheet bigger than this is skipped
+MAX_CSS_BYTES = 2_000_000   # a single stylesheet bigger than this is skipped
+MAX_HTML_BYTES = 5_000_000  # a page bigger than this is not read at all
 
 
 class Oversize(Exception):
-    """A stylesheet past the cap — abandoned mid-download, not read."""
+    """A document past the cap — abandoned mid-download, not read."""
 
 
 # ---------------------------------------------------------------------------
 # Fetching (the only I/O)
 # ---------------------------------------------------------------------------
 
-def fetch_text(session: requests.Session, url: str, timeout: int,
-               max_bytes: int | None = None) -> str | None:
-    """The body as text, or None when the request failed. With
-    max_bytes the download is streamed and dropped as soon as it passes
-    the cap (Oversize) — the guard spends no bandwidth on a stylesheet
-    it will not read."""
+def fetch(session: requests.Session, url: str, timeout: int,
+          max_bytes: int) -> tuple[str, str] | None:
+    """(body as text, URL it finally answered from), or None when the
+    request failed. The download is streamed and dropped as soon as it
+    passes the cap (Oversize) — the guard spends no bandwidth on a file
+    it will not read. Only a charset the server actually declared is
+    trusted; requests would otherwise guess latin-1 for any `text/*`,
+    which mangles a UTF-8 page or stylesheet."""
     try:
-        with session.get(url, timeout=timeout,
-                         stream=max_bytes is not None) as resp:
+        with session.get(url, timeout=timeout, stream=True) as resp:
             resp.raise_for_status()
-            if max_bytes is None:
-                return resp.text or ""
             declared = resp.headers.get("Content-Length", "")
             if declared.isdigit() and int(declared) > max_bytes:
                 raise Oversize(url)
@@ -67,12 +75,10 @@ def fetch_text(session: requests.Session, url: str, timeout: int,
                 body += chunk
                 if len(body) > max_bytes:
                     raise Oversize(url)
-            # Only trust a charset the server actually declared; requests
-            # would otherwise guess latin-1 for text/css, which mangles a
-            # UTF-8 stylesheet.
             charset = (resp.encoding if "charset" in
                        resp.headers.get("Content-Type", "").lower() else None)
-            return bytes(body).decode(charset or "utf-8", errors="replace")
+            return (bytes(body).decode(charset or "utf-8", errors="replace"),
+                    resp.url or url)
     except requests.RequestException as exc:
         log(f"  ⚠️ {url}: {type(exc).__name__}")
         return None
@@ -81,10 +87,21 @@ def fetch_text(session: requests.Session, url: str, timeout: int,
 def gather_css_sources(session, url: str, max_stylesheets: int,
                        timeout: int) -> tuple[list[tuple[str, str]], int]:
     """([(label, css_text)], skipped_count) — the page's inline styles,
-    its style attributes, and up to max_stylesheets linked files."""
-    html = fetch_text(session, url, timeout)
-    if html is None:
-        raise requests.RequestException(f"{url} never answered")
+    its style attributes, and up to max_stylesheets linked files.
+    Relative hrefs resolve against the URL the page finally answered
+    from, and against its `<base href>` where it has one: a site that
+    redirects `/` → `/en/` keeps its stylesheets instead of reporting
+    an empty palette and blaming JavaScript for it."""
+    try:
+        page = fetch(session, url, timeout, MAX_HTML_BYTES)
+    except Oversize:
+        raise requests.RequestException(
+            f"{url} is over {MAX_HTML_BYTES // 1_000_000} MB — too big "
+            f"to read")
+    if page is None:
+        raise requests.RequestException(
+            f"{url} never answered — there was nothing to read")
+    html, final_url = page
 
     sources: list[tuple[str, str]] = []
     for block in find_style_blocks(html):
@@ -93,11 +110,11 @@ def gather_css_sources(session, url: str, max_stylesheets: int,
     if inline:
         sources.append(("style=\"…\" attributes", "\n".join(inline)))
 
+    base = find_base_href(html, final_url)
     skipped = 0
-    links = find_stylesheet_links(html, url)[:max_stylesheets]
-    for css_url in links:
+    for css_url in find_stylesheet_links(html, base)[:max_stylesheets]:
         try:
-            css = fetch_text(session, css_url, timeout, MAX_CSS_BYTES)
+            css = fetch(session, css_url, timeout, MAX_CSS_BYTES)
         except Oversize:
             log(f"  ⚠️ {css_url}: over "
                 f"{MAX_CSS_BYTES // 1_000_000} MB, skipped")
@@ -106,7 +123,7 @@ def gather_css_sources(session, url: str, max_stylesheets: int,
         if css is None:
             skipped += 1
             continue
-        sources.append((css_url, css))
+        sources.append((css_url, css[0]))
     return sources, skipped
 
 
@@ -169,11 +186,10 @@ def main(argv: list[str] | None = None) -> int:
         sources, skipped = gather_css_sources(session, args.url,
                                               args.max_stylesheets,
                                               args.timeout)
-    except requests.RequestException:
-        print(f"✗ {args.url} never answered — there was nothing to read",
-              file=sys.stderr, flush=True)
+    except requests.RequestException as exc:
+        print(f"✗ {exc}", file=sys.stderr, flush=True)
         emit({"type": "markdown", "content":
-              f"## Check failed\n\n❌ **{args.url}** never answered. "
+              f"## Check failed\n\n❌ {exc}. "
               f"Verify the URL ([IP Search](../ip-search), "
               f"[Server Timing](../server-timing)) and re-run."})
         return 1
@@ -183,10 +199,20 @@ def main(argv: list[str] | None = None) -> int:
     emit({"type": "progress", "pct": 45,
           "message": f"{len(sources)} CSS source(s) — extracting colors"})
 
+    # Custom properties first — a var() can only be read once every
+    # sheet has had its say about what the token is defined as.
+    defs: dict[str, set[str]] = {}
+    for _label, css in sources:
+        collect_custom_properties(css, defs)
+    tokens = resolve_custom_properties(defs)
+    if defs:
+        log(f"  {len(tokens)} of {len(defs)} color custom propert(ies) "
+            f"resolve to one literal color")
+
     # Extract → count per category → group similar colors.
     raw: dict[str, Counter] = defaultdict(Counter)
     for _label, css in sources:
-        for category, color in extract_colors_from_css(css):
+        for category, color in extract_colors_from_css(css, tokens):
             raw[category][color] += 1
     total_found = sum(sum(c.values()) for c in raw.values())
     log(f"  {total_found} color declaration(s) across "

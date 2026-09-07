@@ -17,18 +17,22 @@ Every CSS color syntax parses (`#fff`, `#rrggbb`, `#rrggbbaa`,
 `rgb()/rgba()` and `hsl()/hsla()` in both the comma and the modern
 space form, `oklch()`/`oklab()`, all 148 named colors); syntax
 variants merge at parse time, and **near-identical colors group
-together** by perceptual HSL distance — the hand-tuned `#343434` next
-to `#333333` becomes one group.
+together** by perceptual distance (ΔE in OKLab) — the hand-tuned
+`#343434` next to `#333333` becomes one group, and so do two whites
+apart by one bit.
 
-A `var(--brand)` reference is left out rather than guessed at (it
-resolves only against the whole cascade) — and a custom-property
-*name* is never read as a color: `var(--brand-red-500)` is a name, not
-the color red.
+**Custom properties are resolved where they are unambiguous**: a
+`--token` the page defines exactly once with a literal color resolves
+every `var()` that references it. A token redefined per theme needs the
+whole cascade to settle, so it is left out rather than guessed at —
+and a custom-property *name* is never read as a color:
+`var(--brand-red-500)` is a name, not the color red.
 
 **Static CSS only.** The page is fetched once; each linked stylesheet
-is fetched once (politely capped). Colors painted by JavaScript at
-runtime are not seen — an empty palette says so honestly instead of
-guessing.
+is fetched once (politely capped). Relative links resolve against the
+URL the page finally answered from, so a site that redirects keeps its
+stylesheets. Colors painted by JavaScript at runtime are not seen — an
+empty palette says so honestly instead of guessing.
 
 ## Using with PyShell
 
@@ -58,7 +62,7 @@ python3 main.py --url https://example.org --max-stylesheets 40 --top-n 12
 
 - `0` — the run completed (an empty palette is an honest finding —
   the page may paint itself with JavaScript).
-- `1` — the page never answered.
+- `1` — the page could not be read (no answer, or over 5 MB).
 - `2` — bad arguments.
 
 ## Layout
