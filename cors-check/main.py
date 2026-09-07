@@ -87,24 +87,33 @@ def verdict_reflection(origin_sent: str, headers) -> str:
     return "secure"
 
 
+def registrable_of(host: str) -> str:
+    """The last two labels — the string a sloppy whitelist matches on.
+    IP literals and single-label hosts have no registrable domain; the
+    whole host stands in, so every trap still carries the host string."""
+    parts = host.split(".")
+    if len(parts) < 2 or ":" in host or re.fullmatch(r"[0-9.]+", host):
+        return host
+    return ".".join(parts[-2:])
+
+
 def confusable_origins(url: str) -> list[tuple[str, str]]:
     """(label, origin) pairs built from the target's own host — the
     indexOf/regex-bypass shapes."""
     host = urlsplit(url).hostname or "example.com"
-    registrable = host.split(".")[-2] + "." + host.split(".")[-1] \
-        if host.count(".") >= 1 else host
+    registrable = registrable_of(host)
     return [
         ("suffix trap", f"https://{host}.attacker.io"),
-        ("prefix trap", f"https://not-really-{registrable.replace('.', '-')}.com"),
+        ("prefix trap", f"https://not-really-{registrable}"),
         ("substring trap", f"https://{registrable}attacker.io"),
     ]
 
 
 def preflight_verdict(headers) -> str:
-    """echo-everything | allows-methods | none."""
-    methods = headers.get("Access-Control-Allow-Methods") or ""
-    if not methods and not acao_of(headers):
-        return "none"
+    """echo-everything | allows-methods | origin-only | none."""
+    methods = (headers.get("Access-Control-Allow-Methods") or "").strip()
+    if not methods:
+        return "origin-only" if acao_of(headers) else "none"
     if "*" in methods:
         return "echo-everything"
     return "allows-methods"
@@ -143,7 +152,8 @@ def probe(url: str, timeout: int) -> dict:
 
     # 2 — reflection with an unrelated origin
     resp = get(ATTACKER_ORIGIN)
-    v = verdict_reflection(ATTACKER_ORIGIN, resp.headers)
+    reflect_headers = resp.headers
+    v = verdict_reflection(ATTACKER_ORIGIN, reflect_headers)
     if v == "reflected+credentials":
         add("reflection", v,
             f"Origin {ATTACKER_ORIGIN} answered with "
@@ -155,7 +165,12 @@ def probe(url: str, timeout: int) -> dict:
             f"Origin {ATTACKER_ORIGIN} reflected back — no whitelist "
             "is actually checked", "high")
     elif v == "wildcard":
-        if base["acac"].lower() == "true":
+        # credentials usually surface only on the Origin-carrying
+        # answer — most frameworks emit no CORS headers at all for the
+        # baseline request, so the baseline alone under-reports this
+        creds = (acac_of(resp.headers).lower() == "true"
+                 or base["acac"].lower() == "true")
+        if creds:
             add("wildcard+credentials", v,
                 "`*` with `Allow-Credentials: true` — browsers ignore "
                 "the combo, but the config is one step from "
@@ -189,7 +204,8 @@ def probe(url: str, timeout: int) -> dict:
     for label, origin in confusable_origins(url):
         try:
             resp = get(origin)
-        except requests.RequestException:
+        except requests.RequestException as exc:
+            out["notes"].append(f"{label} request failed: {exc}")
             continue
         v = verdict_reflection(origin, resp.headers)
         if v in ("reflected", "reflected+credentials"):
@@ -219,6 +235,10 @@ def probe(url: str, timeout: int) -> dict:
                                        "")
             add("preflight", pv,
                 f"preflight answers methods: {methods}", "info")
+        elif pv == "origin-only":
+            add("preflight", pv,
+                "the preflight answers an origin but names no "
+                "methods — non-simple requests stay blocked", "info")
         else:
             add("preflight", pv,
                 "no preflight CORS answer — non-simple requests are "
@@ -228,8 +248,8 @@ def probe(url: str, timeout: int) -> dict:
 
     # 6 — Vary: Origin on the reflecting answer
     if reflection_verdict.startswith("reflected"):
-        resp = get(ATTACKER_ORIGIN)
-        if not vary_origin(resp.headers):
+        # step 2's answer *is* the reflecting one — no second request
+        if not vary_origin(reflect_headers):
             add("vary", "missing",
                 "a per-origin answer without `Vary: Origin` — a "
                 "shared cache can pin one visitor's ACAO onto "
@@ -261,14 +281,14 @@ def build_table_event(result: dict) -> dict:
 
 
 def build_markdown(result: dict) -> str:
-    out = [f"# CORS Check — Report\n",
+    vary = "includes Origin" if result["baseline"]["vary"] else "absent"
+    out = ["# CORS Check — Report\n",
            f"URL: `{result['url']}` · status {result.get('status')}"
            f" · verdict: **{result['verdict']}**\n",
            f"Baseline (no Origin sent): "
            f"ACAO `{result['baseline']['acao'] or '—'}` · "
            f"credentials `{result['baseline']['acac'] or '—'}` · "
-           f"Vary {'includes Origin' if result['baseline']['vary']
-                  else 'absent'}\n"]
+           f"Vary {vary}\n"]
     out.append("A handful of GET/OPTIONS requests with a spoofed "
                "Origin — the traffic any browser produces, no "
                "payloads. What the answers reveal:\n")
@@ -311,6 +331,19 @@ def write_artifacts(result: dict, report: str) -> None:
 
 # ---------------------------------------------------------------------- main
 
+def bounded_timeout(value: str) -> int:
+    """The manifest promises 3–60; argparse promises the same."""
+    try:
+        seconds = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is not a whole number of seconds")
+    if not 3 <= seconds <= 60:
+        raise argparse.ArgumentTypeError(
+            f"{seconds} is out of range — the timeout is 3–60 seconds")
+    return seconds
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="CORS Check — is the CORS policy strict: "
@@ -318,8 +351,8 @@ def build_parser() -> argparse.ArgumentParser:
                     "prefix/suffix traps, preflight, Vary")
     parser.add_argument("--url", required=True,
                         help="the URL to probe")
-    parser.add_argument("--timeout", type=int, default=15,
-                        help="per-request timeout in seconds (default 15)")
+    parser.add_argument("--timeout", type=bounded_timeout, default=15,
+                        help="per-request timeout in seconds (3–60, default 15)")
     return parser
 
 
