@@ -390,12 +390,12 @@ def build_table_event(docs: list[OfficeDoc]) -> dict:
             verdict = "🟢 clean"
         else:
             verdict = "🔴 identity leak" if identity_leak(doc) else "🟠 metadata"
-        rows.append({
-            "file": os.path.basename(doc.path),
-            "kind": doc.kind or "?",
-            "leaks": ", ".join(doc.leaks) if doc.leaks else "—",
-            "verdict": verdict,
-        })
+        rows.append([
+            os.path.basename(doc.path),
+            doc.kind or "?",
+            ", ".join(doc.leaks) if doc.leaks else "—",
+            verdict,
+        ])
     return {"type": "table",
             "columns": ["file", "kind", "leaks", "verdict"],
             "rows": rows}

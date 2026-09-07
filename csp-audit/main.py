@@ -278,8 +278,8 @@ def verdict_of(findings: list[dict]) -> str:
 
 
 def build_table_event(findings: list[dict]) -> dict:
-    rows = [{"severity": ICON[f["severity"]] + " " + f["severity"],
-             "check": f["check"], "detail": f["detail"][:90]}
+    rows = [[ICON[f["severity"]] + " " + f["severity"],
+             f["check"], f["detail"][:90]]
             for f in findings]
     return {"type": "table", "columns": ["severity", "check",
                                          "detail"], "rows": rows}

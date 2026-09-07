@@ -414,12 +414,12 @@ def build_table_event(mails: list[MailDoc]) -> dict:
             dmarc = m.auth.dmarc or "—"
         else:
             spf = dkim = dmarc = "none"
-        rows.append({
-            "file": os.path.basename(m.path),
-            "from": m.from_addr or "—",
-            "spf": spf, "dkim": dkim, "dmarc": dmarc,
-            "verdict": m.verdict if m.status == "ok" else "unreadable",
-        })
+        rows.append([
+            os.path.basename(m.path),
+            m.from_addr or "—",
+            spf, dkim, dmarc,
+            m.verdict if m.status == "ok" else "unreadable",
+        ])
     return {"type": "table",
             "columns": ["file", "from", "spf", "dkim", "dmarc", "verdict"],
             "rows": rows}

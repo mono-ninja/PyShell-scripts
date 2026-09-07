@@ -343,9 +343,9 @@ def analyze(records: list[dict]) -> dict:
 # -------------------------------------------------------------------- report
 
 def build_table_event(a: dict) -> dict:
-    rows = [{"issuer": issuer, "certs": count}
+    rows = [[issuer, count]
             for issuer, count in a["by_issuer"].items()]
-    rows.sort(key=lambda r: -r["certs"])
+    rows.sort(key=lambda r: -r[1])
     return {"type": "table", "columns": ["issuer", "certs"],
             "rows": rows[:15]}
 

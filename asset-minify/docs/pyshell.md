@@ -1,28 +1,32 @@
 # Asset Minify
 
-Minifies CSS and JS through the **system binaries** — terser for JS,
-clean-css-cli for CSS, optionally autoprefixer (postcss-cli) for
-vendor prefixes. A wrapper, like [cURL](../../curl): the minifiers are
-your system tools; this script is the orchestration — discovery,
-per-file runs, honest reporting.
+Minifies CSS and JS with a **built-in, pure-Python engine** — no npm,
+no dependencies — and hands the work to the **system binaries** (terser
+for JS, clean-css-cli for CSS) whenever they are installed, because
+they compress harder. Python does the orchestration either way:
+discovery, per-file runs, honest reporting.
 
 ---
 
 ## Before running
 
-1. Make sure the tools are installed (the run checks and tells you
-   the exact line if not):
+Nothing to install: the built-in engine always works, and **Prepare
+Env** has nothing to do (no Python dependencies).
 
-   ```bash
-   npm install -g terser clean-css-cli
-   # only for vendor-prefixing:
-   npm install -g postcss-cli autoprefixer
-   ```
+No comment survives a run, whichever engine does the work: the system
+binaries are called with `--comments false` / `specialComments:0` so
+they match the built-in one.
 
-2. Pick a **Source** — one file, several, or a folder (with the
+Optional, for the harder squeeze on JS — terser mangles names and drops
+dead code, which the built-in engine deliberately does not:
+
+```bash
+npm install -g terser clean-css-cli
+```
+
+1. Pick a **Source** — one file, several, or a folder (with the
    CSS/JS filter and the **Recursive** switch).
-3. Choose the **Output folder** and press **Run** (⌘↩). No Python
-   dependencies — Prepare Env has nothing to install.
+2. Choose the **Output folder** and press **Run** (⌘↩).
 
 ## Fields
 
@@ -35,9 +39,22 @@ per-file runs, honest reporting.
 
 ### Options
 
-- **Vendor-prefix CSS (autoprefixer)** — runs autoprefixer before
-   clean-css. Needs postcss-cli + autoprefixer; checked only when a
-   CSS file is actually being processed and the switch is on.
+- **Engine**
+  - *Automatic* (default) — the system binary per kind when it is
+    installed, the built-in minifier when it is not. A missing binary
+    is never a failure here, only a weaker result. The lookup goes
+    beyond `PATH` into the usual npm bin folders
+    (`/opt/homebrew/bin`, `/usr/local/bin`, `~/.npm-global/bin`, …),
+    because an app-launched run inherits a minimal `PATH` and would
+    otherwise miss an installed terser. If the binary is found but
+    fails on a file, that file falls back to the built-in engine and
+    the row's note carries the binary's own complaint.
+  - *Built-in* — never shells out. Predictable, dependency-free, and
+    the only option on a machine without Node.
+  - *System binaries* — demands terser / clean-css-cli and stops with
+    the exact `npm install -g …` line if one is missing. Use it when
+    the extra compression is the point and a silent fallback would be
+    worse than an error.
 
 ### Output
 
@@ -48,10 +65,27 @@ per-file runs, honest reporting.
 
 ---
 
+## What the built-in engine does
+
+- **CSS** — drops **every** comment, `/*!` licence banners and
+  `/* ===== */` section headers alike, collapses whitespace, removes the
+  last `;` in a block, shortens `#aabbcc` to `#abc` and `0.50em` to
+  `.5em`. It stays out of the places where a
+  space carries meaning: inside `calc()` / `clamp()` / `min()` /
+  `max()`, and before a `:` — `a :hover` and `a:hover` are different
+  selectors. Typically 15–25% off hand-written CSS.
+- **JS** — a real tokenizer: regex literals are told apart from
+  division, template literals (with nested `${…}`) are copied whole.
+  Every comment (`/*!` banners included) and every unnecessary space
+  go; a newline that was in the source is **kept** wherever ASI could
+  depend on it, so `return` never joins the line below it. It does not
+  mangle names or eliminate dead code — that needs a full parser, which
+  is what terser is for. Typically 20–30%, against terser's 50–70%.
+
 ## Result
 
-- **Results tab** — the per-file table and the summary (bytes saved,
-  counts per status).
+- **Results tab** — the per-file table (file · kind · engine · status ·
+  saved % · note) and the summary (bytes saved, counts per status).
 - **Artifacts** — `minification_report.csv`.
 
 ### The statuses
@@ -62,13 +96,15 @@ per-file runs, honest reporting.
   pre-minified sources; the row is a result, not a failure.
 - **skipped** — a `*.min.*` input (minifying the minified is churn) or
   an existing output without Overwrite.
-- **error** — the binary failed on this file; the note carries its
-  first stderr line.
+- **error** — this file failed; the note carries the binary's first
+  stderr line, or the built-in engine's complaint (an unterminated
+  literal, a file that isn't UTF-8). One bad file never stops the
+  batch.
 
 ## Exit codes
 
 - `0` — the batch ran.
-- `1` — missing system binaries (with the exact
-  `npm install -g …` line), unusable output folder, or every file
-  failed.
+- `1` — **Engine: System binaries** with a missing binary (the exact
+  `npm install -g …` line is printed), an unusable output folder, or
+  every file failed.
 - `2` — bad arguments.

@@ -226,10 +226,9 @@ VERDICT_ICON = {"dangling — target is NXDOMAIN": "🔴",
 
 
 def build_table_event(results: list[dict]) -> dict:
-    rows = [{"host": r["host"], "cname": r["cname"][:50],
-             "service": r["service"] or "—",
-             "verdict": VERDICT_ICON.get(r["verdict"], "") + " "
-             + r["verdict"]}
+    rows = [[r["host"], r["cname"][:50],
+             r["service"] or "—",
+             VERDICT_ICON.get(r["verdict"], "") + " " + r["verdict"]]
             for r in results if r["verdict"] != "no CNAME"]
     return {"type": "table",
             "columns": ["host", "cname", "service", "verdict"],

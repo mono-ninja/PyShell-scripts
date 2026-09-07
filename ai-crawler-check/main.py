@@ -191,8 +191,9 @@ def check_noai(url: str, timeout: int) -> dict:
 # -------------------------------------------------------------------- report
 
 def build_table_event(crawlers: list[dict]) -> dict:
-    rows = [{"crawler": c["agent"], "operator": c["operator"],
-             "robots.txt": c["status"]["verdict"]}
+    # rows are arrays of cell values aligned with columns — PyShell's
+    # table renderer maps over each row; dict rows crash it
+    rows = [[c["agent"], c["operator"], c["status"]["verdict"]]
             for c in crawlers]
     return {"type": "table",
             "columns": ["crawler", "operator", "robots.txt"],

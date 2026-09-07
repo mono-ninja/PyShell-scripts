@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.cachecheck
 name: Cache Check
-version: 0.1
+version: 1.0
 description: Is caching actually working — repeated requests watch Age grow and HIT/MISS flip, Cache-Control is decoded into a TTL, a conditional request checks revalidation, and cookies/Vary that bust the cache are called out — the "why is it slow" answer after Server Timing and Load Test
 icon: lucide:cloud-download
 category: Network
@@ -10,7 +10,7 @@ runtime:
   entry: main.py
   python: ">=3.11,<3.15"
   requirements: requirements.txt
-  timeout: 300
+  timeout: 1260   # worst case the form allows: 9×60s waits + 11×60s requests
 
 inputs:
   - key: url

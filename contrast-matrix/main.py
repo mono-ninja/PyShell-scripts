@@ -250,20 +250,16 @@ def verdict(entry: dict) -> str:
 
 
 def build_table_event(pairs: list[dict], top: int = 30) -> dict:
-    rows = [{"text": p["text"], "on background": p["background"],
-             "ratio": p["ratio"], "wcag": verdict(p),
-             "apca": f"{p['apca_l']:+.0f}"}
+    rows = [[p["text"], p["background"],
+             p["ratio"], verdict(p),
+             f"{p['apca_l']:+.0f}"]
             for p in pairs[:top]]
     if len(pairs) > top:
-        rows.append({"text": f"… +{len(pairs) - top} more",
-                     "on background": "", "ratio": "",
-                     "wcag": "", "apca": ""})
+        rows.append([f"… +{len(pairs) - top} more", "", "", "", ""])
     return {"type": "table",
             "columns": ["text", "on background", "ratio", "wcag",
                         "apca"],
-            "rows": rows or [{"text": "—", "on background": "—",
-                              "ratio": "—", "wcag": "—",
-                              "apca": "—"}]}
+            "rows": rows or [["—", "—", "—", "—", "—"]]}
 
 
 def build_markdown(hexes: list[str], pairs: list[dict]) -> str:

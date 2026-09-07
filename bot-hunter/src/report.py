@@ -484,10 +484,16 @@ def build_markdown_report(report: dict) -> str:
             lines.append(f"| {fmt} | {cnt:,} |")
     skip_samples = stats.get('skip_samples', {})
     if skip_samples:
-        lines += ["", "<details><summary>Sample skipped lines</summary>", ""]
+        # Plain markdown only.  The Results tab renders this as markdown
+        # without raw HTML, so a <details>/<summary> disclosure showed up as
+        # literal tags instead of a collapsible block.
+        lines += ["", "**Sample skipped lines**", ""]
         for reason, sample in skip_samples.items():
-            lines.append(f"- **{reason}**: `{sample}`")
-        lines += ["", "</details>", ""]
+            # A backtick in a log line would terminate the inline code span
+            # early and spill the rest of the line into the prose.
+            safe = sample.replace('`', "'")
+            lines.append(f"- **{reason}**: `{safe}`")
+        lines.append("")
 
     lines.append("")
 

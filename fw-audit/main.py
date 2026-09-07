@@ -370,15 +370,15 @@ def build_table_event(configs: list[FirewallConfig]) -> dict:
     rows = []
     for cfg in configs:
         risky = risky_ports_of(cfg.rules)
-        rows.append({
-            "file": os.path.basename(cfg.path),
-            "format": cfg.fmt,
-            "default in": cfg.default_in,
-            "rules": len(cfg.rules),
-            "risky open": ", ".join(f"{p}/{svc}" for p, svc, _ in
-                                    risky[:4]) or "—",
-            "verdict": cfg.verdict,
-        })
+        rows.append([
+            os.path.basename(cfg.path),
+            cfg.fmt,
+            cfg.default_in,
+            len(cfg.rules),
+            ", ".join(f"{p}/{svc}" for p, svc, _ in
+                      risky[:4]) or "—",
+            cfg.verdict,
+        ])
     return {"type": "table",
             "columns": ["file", "format", "default in", "rules",
                         "risky open", "verdict"],

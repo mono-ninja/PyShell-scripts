@@ -8,16 +8,18 @@ cloud: the text never leaves the machine.
 
 - **A dozen curated voices** across languages — American/British
   English, Spanish, French, Italian, Japanese, Mandarin — with the
-  language derived automatically from the voice's first letter.
+  language derived automatically from the voice's first letter. The
+  voices file carries dozens more: `--list-voices` prints every one of
+  them, grouped by language, reading nothing but that file.
 - **Speed control** (0.5–2.0×), up to 5000 characters per run (CPU
   synthesis is roughly real-time).
 - The result lands as the **`speech.wav`** artifact.
 
-**Heavy prerequisites, handled honestly** (the two failure states are
-both exit 1 with exact instructions — never a warning and an empty
-result):
+**Heavy prerequisites, handled honestly** (every one of them is exit 1
+with exact instructions — never a warning and an empty result):
 
-- `kokoro-onnx` missing → Prepare Env / the pip line;
+- `kokoro-onnx` or `soundfile` missing → Prepare Env / the pip line,
+  named and checked **before** the synthesis, not after;
 - model files missing → re-run with **Download the models** — a
   one-time fetch of the chosen variant (~80 MB `int8`, larger `fp16`
   / `full`) plus the ~27 MB voices file, into
@@ -43,10 +45,16 @@ python3 -m pip install -r requirements.txt
 
 python3 main.py --text "Hello from PyShell." --download-models
 python3 main.py --text "Hello from PyShell."                       # models cached
-python3 main.py --text "Bon día" --voice ef_dora --speed 0.9
+python3 main.py --text "Buenos días" --voice ef_dora --speed 0.9
 python3 main.py --text "你好" --voice zf_xiaobei
 python3 main.py --text "Long text…" --model-variant fp16 --download-models
+
+python3 main.py --list-voices                      # every name in the voices file
+python3 main.py --list-voices --download-models    # …fetching it first (~27 MB)
 ```
+
+`--list-voices` is a CLI convenience — the PyShell form keeps its
+curated dropdown.
 
 ## Result
 
@@ -57,10 +65,11 @@ python3 main.py --text "Long text…" --model-variant fp16 --download-models
 ## Exit codes
 
 - `0` — the audio was written.
-- `1` — a prerequisite is missing (the package, or the model files —
-  with the exact instruction), or synthesis failed.
-- `2` — bad arguments (empty/oversized text, unknown voice, speed out
-  of range).
+- `1` — a prerequisite is missing (a package, the model files — with
+  the exact instruction — or a download that failed), or synthesis
+  failed.
+- `2` — bad arguments (empty/oversized text, a voice the model doesn't
+  carry, speed out of range).
 
 ## Layout
 

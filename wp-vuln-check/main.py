@@ -301,9 +301,12 @@ def match_software(sw: Software, index: dict) -> list[dict]:
 # -------------------------------------------------------------------- report
 
 def build_table_event(rows: list[dict]) -> dict:
+    # rows arrive as dicts (they also feed the markdown report) —
+    # the table gets arrays of cells aligned with the columns
     return {"type": "table",
             "columns": ["software", "version", "vulns", "patched"],
-            "rows": rows[:60]}
+            "rows": [[r["software"], r["version"], r["vulns"],
+                      r["patched"]] for r in rows[:60]]}
 
 
 def build_markdown(software: list[Software], results: list[dict],

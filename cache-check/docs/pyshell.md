@@ -31,7 +31,7 @@ instead of guessing, and falls back to the Age/TTL evidence.
 - **Requests** — how many plain requests (2–10, default 3): enough to
   see MISS→HIT settle and Age grow.
 - **Interval (s)** — pause between requests, so Age has time to grow
-  (default 1).
+  (0–60, default 1).
 - **Per-request timeout (s)** — 3–60, default 15.
 
 ---
@@ -43,14 +43,28 @@ instead of guessing, and falls back to the Age/TTL evidence.
   and the report:
   - **Policy** — Cache-Control decoded: `never cached` / `stored,
     always revalidated` / `browser-only` / `cacheable, TTL Ns` /
-    `no TTL directives`.
-  - **Cache layer** — the HIT/MISS story, or the honest "no
-    cache-status headers exposed — cannot see the cache layer from
-    here" with the Age-growth fallback.
+    `not cacheable (max-age=0)` — or `not cacheable (s-maxage=0)`,
+    which shuts out shared caches while browsers may still keep a
+    copy / `no TTL directives`.
+  - **Cache layer** — the HIT/MISS story, read *in order*: misses
+    before hits are a cache settling in; a miss **after** a hit means
+    the copy is not being held (per-visitor keying, a very short TTL,
+    or eviction). The full CDN vocabulary counts, not just the two
+    words: `UPDATING`, `STALE` and `REVALIDATED` were served **from
+    cache**, while `EXPIRED`, `BYPASS`, `DYNAMIC`, `PASS`, `IGNORED`
+    and `NONE` came **from the origin** — and each status that needs
+    explaining gets a line saying what it means. When nothing says
+    either, the report says so honestly — the header is absent, or
+    present but unreadable — and falls back to the Age evidence.
+  - **Age** — growing Age means a stored copy is being reused; Age
+    falling back (17s → 1s) means the copy was replaced during the
+    probe, which is what an `EXPIRED` → `UPDATING` run looks like.
   - **Freshness** — TTL minus the observed Age: the seconds of
     freshness that remained at first request.
   - **Revalidation** — 304 on the conditional request means
-    ETag/Last-Modified work; a full 200 means they don't.
+    ETag/Last-Modified work. A full 200 has two readings, and the
+    report gives both: the resource genuinely changed since the first
+    request, or the validator is not honored.
   - **Cache-busters** — `Set-Cookie` (the classic WordPress
     "every visitor misses" cause), `Vary: Cookie`.
   - **What to do** — page-cache plugin rules, CDN rules, far-future
@@ -63,7 +77,7 @@ instead of guessing, and falls back to the Age/TTL evidence.
 |---|---|
 | 0 | ran; the report describes the cache story |
 | 1 | unreachable — connection failed |
-| 2 | bad arguments: no http(s) URL, requests out of 2–10 |
+| 2 | bad arguments: no http(s) URL, or requests / interval / timeout out of range |
 
 ## Related
 

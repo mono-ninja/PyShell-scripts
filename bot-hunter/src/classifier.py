@@ -40,13 +40,16 @@ BOT_SIGNATURES: list[tuple] = [
     (re.compile(r'Mediapartners-Google',  re.I), 'Google Adsense',     'ads',     True,  'Mediapartners-Google',  None),
     (re.compile(r'AdsBot-Google',         re.I), 'Google AdsBot',      'ads',     True,  'AdsBot-Google',         None),
     (re.compile(r'Google-InspectionTool', re.I), 'Google Inspection',  'search',  True,  'Google-InspectionTool', None),
+    (re.compile(r'GoogleOther',           re.I), 'GoogleOther',        'search',  True,  'GoogleOther',           None),
+    # adidxbot BEFORE bingbot: its UA carries "+http://www.bing.com/bingbot.htm",
+    # so the generic bingbot pattern would otherwise swallow it.
+    (re.compile(r'adidxbot',              re.I), 'Bing AdIdx',         'ads',     True,  'adidxbot',              None),
     (re.compile(r'bingbot',               re.I), 'Bingbot',            'search',  True,  'bingbot',               None),
     (re.compile(r'msnbot',                re.I), 'MSNBot',             'search',  True,  'msnbot',                None),
-    (re.compile(r'adidxbot',              re.I), 'Bing AdIdx',         'ads',     True,  'adidxbot',              None),
     (re.compile(r'Yandex',                re.I), 'Yandexbot',          'search',  True,  'YandexBot',             None),
     (re.compile(r'DuckDuckBot',           re.I), 'DuckDuckBot',        'search',  True,  'DuckDuckBot',           None),
     (re.compile(r'Baiduspider',           re.I), 'Baiduspider',        'search',  True,  'Baiduspider',           None),
-    (re.compile(r'Sogou',                 re.I), 'Sogou',              'search',  True,  'Sogou',                 None),
+    (re.compile(r'Sogou[\s-]\w+\s+spider', re.I), 'Sogou',            'search',  True,  'Sogou web spider',      None),
     (re.compile(r'360Spider',             re.I), '360Spider',          'search',  True,  '360Spider',             None),
     (re.compile(r'facebookexternalhit',   re.I), 'Facebook',           'social',  True,  'facebookexternalhit',   None),
     (re.compile(r'Twitterbot',            re.I), 'Twitterbot',         'social',  True,  'Twitterbot',            None),
@@ -55,17 +58,30 @@ BOT_SIGNATURES: list[tuple] = [
     (re.compile(r'TelegramBot',           re.I), 'TelegramBot',        'social',  True,  'TelegramBot',           None),
     (re.compile(r'GPTBot',                re.I), 'GPTBot',             'ai',      True,  'GPTBot',                None),
     (re.compile(r'ChatGPT-User',          re.I), 'ChatGPT-User',       'ai',      True,  'ChatGPT-User',          None),
+    (re.compile(r'OAI-SearchBot',         re.I), 'OAI-SearchBot',      'ai',      True,  'OAI-SearchBot',         None),
     (re.compile(r'Claude-Web',            re.I), 'Claude-Web',         'ai',      True,  'Claude-Web',            None),
+    (re.compile(r'ClaudeBot',             re.I), 'ClaudeBot',          'ai',      True,  'ClaudeBot',             None),
+    (re.compile(r'Claude-User',           re.I), 'Claude-User',        'ai',      True,  'Claude-User',           None),
+    (re.compile(r'Claude-SearchBot',      re.I), 'Claude-SearchBot',   'ai',      True,  'Claude-SearchBot',      None),
     (re.compile(r'anthropic-ai',          re.I), 'Anthropic',          'ai',      True,  'anthropic-ai',          None),
     (re.compile(r'PerplexityBot',         re.I), 'PerplexityBot',      'ai',      True,  'PerplexityBot',         None),
     (re.compile(r'cohere-ai',             re.I), 'Cohere',             'ai',      True,  'cohere-ai',             None),
+    (re.compile(r'CCBot',                 re.I), 'CCBot',              'ai',      True,  'CCBot',                 None),
+    (re.compile(r'meta-external\w+',      re.I), 'Meta AI',            'ai',      True,  'meta-externalagent',    None),
+    # Bytespider (ByteDance) self-identifies but crawls very aggressively and
+    # is widely reported to ignore robots.txt — flagged, not auto-blocked.
+    (re.compile(r'Bytespider',            re.I), 'Bytespider',         'ai',      False, 'Bytespider',            None),
     (re.compile(r'Applebot',              re.I), 'Applebot',           'search',  True,  'Applebot',              None),
+    (re.compile(r'Amazonbot',             re.I), 'Amazonbot',          'search',  True,  'Amazonbot',             None),
+    (re.compile(r'PetalBot',              re.I), 'PetalBot',           'search',  True,  'PetalBot',              None),
+    (re.compile(r'SeznamBot',             re.I), 'SeznamBot',          'search',  True,  'SeznamBot',             None),
     (re.compile(r'SemrushBot',            re.I), 'SemrushBot',         'seo',     False, 'SemrushBot',            None),
     (re.compile(r'AhrefsBot',             re.I), 'AhrefsBot',          'seo',     False, 'AhrefsBot',             None),
     (re.compile(r'MJ12bot',               re.I), 'Majestic',           'seo',     False, 'MJ12bot',               None),
     (re.compile(r'DotBot',                re.I), 'DotBot',             'seo',     False, 'DotBot',                None),
     (re.compile(r'rogerbot',              re.I), 'Moz',                'seo',     False, 'rogerbot',              None),
     (re.compile(r'SiteAuditBot',          re.I), 'SiteAudit',          'seo',     False, 'SiteAuditBot',          None),
+    (re.compile(r'DataForSeoBot',         re.I), 'DataForSeoBot',      'seo',     False, 'DataForSeoBot',         None),
     (re.compile(r'Screaming Frog',        re.I), 'Screaming Frog',     'seo',     False, 'Screaming Frog SEO Spider', None),
     (re.compile(r'UptimeRobot',           re.I), 'UptimeRobot',        'monitor', True,  'UptimeRobot',           None),
     (re.compile(r'Pingdom',               re.I), 'Pingdom',            'monitor', True,  'Pingdom',               None),
@@ -100,6 +116,23 @@ SCRAPER_BLOCK_PATTERNS: dict[str, str] = {
 # Browser UA keywords for separating "human" traffic from unknown
 _BROWSER_UA_RE = re.compile(r'Mozilla|Chrome|Safari|Firefox|Opera|Edge', re.I)
 
+# Self-identification markers used by crawlers that have no signature yet.
+# Nearly every modern crawler embeds "Mozilla/5.0 (compatible; ...)", so
+# _BROWSER_UA_RE alone routes any unrecognised bot into *human* traffic —
+# inflating the headline metric of an SEO report and, worse, feeding it to the
+# behavioural detectors, which then recommend blocking a legitimate crawler's
+# subnet.  These markers never appear in a real browser UA:
+#   - a standalone "bot"/"crawler"/"spider"/"scraper"/"fetcher" word
+#     (the lookarounds keep device names like Android "CUBOT_X19" out)
+#   - the "+http://..." convention for a bot info page
+#   - a contact e-mail address
+_BOT_MARKER_RE = re.compile(
+    r'(?<![A-Za-z])(?:bot|crawler|spider|scraper|fetcher)(?![A-Za-z])'
+    r'|\+https?://'
+    r'|[\w.-]+@[\w.-]+\.[A-Za-z]{2,}',
+    re.I,
+)
+
 # Paths that indicate systematic scanning when accessed by browser-UA IPs
 SCAN_PATHS = (
     '/authors/', '/plugins/', '/themes/', '/wp-json/',
@@ -130,8 +163,18 @@ def classify_ua(ua: str) -> BotMatch | None:
 
 @lru_cache(maxsize=8192)
 def is_browser_ua(ua: str) -> bool:
-    """Check whether *ua* looks like a real browser (Mozilla-based)."""
-    return bool(ua and ua != '-' and _BROWSER_UA_RE.search(ua))
+    """Check whether *ua* looks like a real browser (Mozilla-based).
+
+    A UA carrying a crawler self-identification marker is never a browser, even
+    though it almost always contains "Mozilla" — see :data:`_BOT_MARKER_RE`.
+    Such traffic is routed to ``unknown_requests`` rather than counted as human
+    and fed to the disguised-bot / subnet detectors.
+    """
+    if not ua or ua == '-':
+        return False
+    if not _BROWSER_UA_RE.search(ua):
+        return False
+    return not _BOT_MARKER_RE.search(ua)
 
 
 def reclassify_wp_cron_bots(bots_out: dict) -> dict:

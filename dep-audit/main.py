@@ -378,9 +378,12 @@ def nearest_fix(vuln: dict, dep: Dep) -> str:
 # -------------------------------------------------------------------- report
 
 def build_table_event(rows: list[dict]) -> dict:
+    # rows arrive as dicts (they also feed the markdown report) —
+    # the table gets arrays of cells aligned with the columns
     return {"type": "table",
             "columns": ["dependency", "version", "vulns", "fix"],
-            "rows": rows[:60]}
+            "rows": [[r["dependency"], r["version"], r["vulns"],
+                      r["fix"]] for r in rows[:60]]}
 
 
 def build_markdown(results: list[LockfileResult],

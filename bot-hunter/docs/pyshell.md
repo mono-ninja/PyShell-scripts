@@ -22,8 +22,8 @@ reads local log files and writes reports.
 
 ## What you get
 
-- **Progress bar** — log parsing (0–80%), bot detection (80–85%), report
-  generation (85–100%).
+- **Progress bar** — log parsing (0–80%, refreshed while a single large file
+  is being read), bot detection (80–85%), report generation (85–100%).
 - **Tables** — bot activity (top 20), disguised bots (IPs with a browser UA
   but bot-like behavior), blocking rules.
 - **Charts** — request distribution by bot category (search, scraper,
@@ -39,14 +39,21 @@ reads local log files and writes reports.
 
 ## What it detects
 
-1. **Known bots** — Googlebot, Bingbot, Yandex, GPTBot, Claude-Web,
-   AhrefsBot and more (46 signatures). Each is marked legitimate or not.
+1. **Known bots** — Googlebot, Bingbot, Yandex, GPTBot, ClaudeBot,
+   Amazonbot, Bytespider, AhrefsBot and more (58 signatures). Each is marked
+   legitimate or not. A crawler with no signature yet is still kept out of the
+   human count: a User-Agent carrying a self-identification marker
+   (a standalone `bot`/`crawler`/`spider` word, a `+http://` info link, or a
+   contact e-mail) is counted as *unknown*, never as human.
 2. **Disguised bots** — IPs with a browser User-Agent but systematic
    scanning (`/wp-json/`, `/plugins/`, high URL diversity). These requests
    count as human in most tools, but they are bots.
 3. **Suspicious subnets** — /24 (IPv4) or /64 (IPv6) ranges with 3+ IP
    addresses or high traffic, indicating a botnet or distributed scraper.
-   Legitimate bots (Google, Bing) are excluded.
+   Legitimate bots (Google, Bing) are excluded. Generated host rules carry the
+   prefix of their address family (`/32` for IPv4, `/128` for IPv6), and a
+   client field that is not an IP address (Apache `HostnameLookups`, some
+   proxies) is reported but never written into a server config.
 4. **Crawl budget waste** — top 404 URLs and top 301 redirects burning the
    indexer's budget.
 5. **Google rate limiting** — 429 response share for Google bots, peak

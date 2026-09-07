@@ -18,9 +18,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from src.events import (
-    UNDER_PYSHELL, emit, status, progress, table, chart, markdown,
-)
+from src.events import status, progress, table, chart, markdown
 from src.parser import discover_log_files, LOG_EXTENSIONS
 from src.analyzer import analyze_logs, build_google_rate_limit
 from src.robots import build_robots_txt
@@ -137,10 +135,18 @@ def main() -> int:
     max_lines = args.max_lines if args.max_lines is not None else int(config.get('max_lines', 0))
     generate_blocking = not args.no_blocking
 
-    # Output directory: PYSHELL_OUTPUT_DIR under PyShell, reports/ otherwise
+    # Output directory: PYSHELL_OUTPUT_DIR under PyShell, reports/ otherwise.
+    # Create it unconditionally.  PyShell normally hands us a directory that
+    # already exists, but a misconfigured PYSHELL_OUTPUT_DIR used to surface as
+    # an unhandled FileNotFoundError from the first report writer — after the
+    # whole analysis had already run.  Fail here instead, with a real message.
     output_dir = Path(os.environ.get('PYSHELL_OUTPUT_DIR', 'reports'))
-    if not UNDER_PYSHELL:
-        output_dir.mkdir(exist_ok=True)
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"Error: cannot create output directory '{output_dir}': {e}",
+              file=sys.stderr)
+        return 1
 
     # ── Find log files ──
     logs_dir = Path(args.logs_dir)

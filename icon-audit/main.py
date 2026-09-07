@@ -282,25 +282,25 @@ def build_table_event(a: dict, n_icons: int) -> dict:
         return len(v) if isinstance(v, list) else 0
 
     rows = [
-        {"check": "icons", "count": n_icons, "detail": ""},
-        {"check": "viewBox groups", "count": len(a["view_box_groups"]),
-         "detail": " / ".join(f"{vb}×{len(f)}"
-                              for vb, f in
-                              list(a["view_box_groups"].items())[:3])},
-        {"check": "silent renames", "count": len(a["renames"]),
-         "detail": "stem ≠ slug"},
-        {"check": "slug collisions",
-         "count": sum(len(f) for f in a["collisions"].values()),
-         "detail": "the build hard-fails here" if a["collisions"]
-         else ""},
-        {"check": "geometry duplicates", "count": n("geometry_duplicates"),
-         "detail": "same paths, different names"},
-        {"check": "embedded rasters", "count": len(a["embedded_rasters"]),
-         "detail": "<image>/data: URI inside"},
-        {"check": "with <title>", "count": len(a["with_title"]),
-         "detail": "stripped at build"},
-        {"check": "parse errors", "count": len(a["broken"]),
-         "detail": ""},
+        ["icons", n_icons, ""],
+        ["viewBox groups", len(a["view_box_groups"]),
+         " / ".join(f"{vb}×{len(f)}"
+                    for vb, f in
+                    list(a["view_box_groups"].items())[:3])],
+        ["silent renames", len(a["renames"]),
+         "stem ≠ slug"],
+        ["slug collisions",
+         sum(len(f) for f in a["collisions"].values()),
+         "the build hard-fails here" if a["collisions"]
+         else ""],
+        ["geometry duplicates", n("geometry_duplicates"),
+         "same paths, different names"],
+        ["embedded rasters", len(a["embedded_rasters"]),
+         "<image>/data: URI inside"],
+        ["with <title>", len(a["with_title"]),
+         "stripped at build"],
+        ["parse errors", len(a["broken"]),
+         ""],
     ]
     return {"type": "table", "columns": ["check", "count", "detail"],
             "rows": rows}

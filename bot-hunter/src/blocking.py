@@ -28,6 +28,28 @@ def _ht_comment(text: str) -> str:
     return ' '.join(text.split())
 
 
+def _host_cidr(ip: str) -> str | None:
+    """Return ``"<ip>/<prefix>"`` for a single host, or ``None`` if not an IP.
+
+    Two traps this closes:
+
+    * The prefix is family-dependent.  A hardcoded ``/32`` on an IPv6 address
+      does not block one host — ``2001:db8:abcd:1234::5/32`` blocks the whole
+      ``2001:db8::/32`` allocation (2^96 addresses).
+    * The client field of a combined-format line is not guaranteed to be an IP
+      (Apache ``HostnameLookups On``, proxies logging ``unknown``).  Emitting a
+      hostname into an nginx ``geo`` block or an Apache ``Require not ip``
+      directive is a config syntax error that takes the whole site down on
+      reload, so such entries are dropped from the blocking rules — they still
+      appear in the disguised-bot report.
+    """
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return None
+    return f"{ip}/{32 if addr.version == 4 else 128}"
+
+
 def _consolidate_subnets(block_subnets: list[dict]) -> list[dict]:
     """Merge 5+ entries from the same parent supernet into a single rule.
 
@@ -81,9 +103,13 @@ def build_blocking_rules(
     # ── Collect IPs to block (disguised bots) ──
     block_ips: list[dict] = []
     for d in disguised_bots:
+        host_cidr = _host_cidr(d['ip'])
+        if host_cidr is None:
+            continue          # not an IP — never emit it into a server config
         confidence = 'HIGH' if d['scan_ratio'] >= 0.70 else 'MEDIUM'
         block_ips.append({
             'ip':         d['ip'],
+            'cidr':       host_cidr,   # nginx geo needs an explicit prefix
             'reason':     f"disguised bot - {d['evidence']}",
             'requests':   d['requests'],
             'confidence': confidence,
@@ -174,9 +200,9 @@ def build_blocking_rules(
     if block_ips:
         ng_lines.append("    # Disguised bots - browser UA + systematic scanning")
         for e in block_ips:
-            pad = max(1, 22 - len(e['ip']) - 3)
+            pad = max(1, 22 - len(e['cidr']))
             ng_lines.append(
-                f"    {e['ip']}/32{' ' * pad}1;  "
+                f"    {e['cidr']}{' ' * pad}1;  "
                 f"# [{e['confidence']}] {e['requests']:,} req | {e['reason']}"
             )
         ng_lines.append("")

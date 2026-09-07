@@ -252,8 +252,8 @@ def probe(url: str, timeout: int) -> dict:
 # -------------------------------------------------------------------- report
 
 def build_table_event(result: dict) -> dict:
-    rows = [{"check": c["check"], "result": c["result"],
-             "severity": c["severity"], "detail": c["detail"][:80]}
+    rows = [[c["check"], c["result"], c["severity"],
+             c["detail"][:80]]
             for c in result["checks"]]
     return {"type": "table",
             "columns": ["check", "result", "severity", "detail"],

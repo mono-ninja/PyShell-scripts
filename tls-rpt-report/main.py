@@ -193,14 +193,12 @@ def merge(reports: list[Report]) -> dict:
 # -------------------------------------------------------------------- report
 
 def build_table_event(a: dict) -> dict:
-    rows = [{"failure type": t, "count": c,
-             "what it means": FAILURE_MEANINGS.get(
-                 t, "— see RFC 8460 §3.4")}
+    rows = [[t, c,
+             FAILURE_MEANINGS.get(t, "— see RFC 8460 §3.4")]
             for t, c in sorted(a["failure_types"].items(),
                                key=lambda kv: -kv[1])]
     if not rows:
-        rows = [{"failure type": "—", "count": 0,
-                 "what it means": "no failures reported"}]
+        rows = [["—", 0, "no failures reported"]]
     return {"type": "table",
             "columns": ["failure type", "count", "what it means"],
             "rows": rows}

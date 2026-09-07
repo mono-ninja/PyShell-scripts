@@ -263,11 +263,10 @@ def human(n: int) -> str:
 
 
 def build_table_event(cards: list[dict]) -> dict:
-    rows = [{"file": c["file"], "title": c["title"][:44],
-             "size": human(c["bytes"])} for c in cards]
+    rows = [[c["file"], c["title"][:44],
+             human(c["bytes"])] for c in cards]
     return {"type": "table", "columns": ["file", "title", "size"],
-            "rows": rows or [{"file": "—", "title": "—",
-                              "size": "—"}]}
+            "rows": rows or [["—", "—", "—"]]}
 
 
 def build_markdown(cards: list[dict], template: str,

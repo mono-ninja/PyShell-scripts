@@ -57,10 +57,19 @@ stylesheets aren't followed either.
 
 - **Every CSS color syntax parses**: `#fff`, `#rrggbb`, `#rrggbbaa`
   (alpha dropped — the palette wants the color, not the transparency),
-  `rgb()/rgba()` with numbers or percentages, `hsl()/hsla()` with
-  `deg`/`turn` units, and all 148 named colors (incl. `rebeccapurple`;
-  `transparent`/`inherit`/`currentColor` are keywords, not colors, and
-  drop out).
+  `rgb()/rgba()` and `hsl()/hsla()` in both the legacy comma form and
+  the modern space form (`rgb(0 0 0 / 50%)`, `hsl(210 100% 50%)`),
+  `oklch()`/`oklab()`, hue units `deg`/`grad`/`rad`/`turn`, and all 148
+  named colors (incl. `rebeccapurple`; `transparent`/`inherit`/
+  `currentColor` are keywords, not colors, and drop out).
+- **What is deliberately *not* read**: a `var(--brand)` or
+  `color-mix()` reference resolves only against the whole cascade, so
+  it is left out rather than guessed at — but a literal fallback still
+  counts (`var(--brand, #FF0000)` → `#FF0000`), as do literals written
+  inside a `color-mix()`. Custom-property *names*
+  (`var(--brand-red-500)`), `url()` paths, CSS comments and at-rule
+  preludes (`@supports (color: color-mix(in lab, red, red))`) are never
+  mistaken for colors.
 - **Syntax variants are normalized at parse time** (`#333`, `#333333`
   and `rgb(51,51,51)` are one color); **grouping folds NEAR colors**
   (a hand-tuned `#343434` next to `#333333`) by perceptual HSL

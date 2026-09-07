@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.colorpalette
 name: Color Palette
-version: 0.1
+version: 1.0
 description: Extract a site's color palette from its CSS — backgrounds, text, borders, shadows, icons — with similar colors grouped, ready as CSS variables and JSON
 icon: lucide:grid
 category: Media

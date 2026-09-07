@@ -295,14 +295,13 @@ def human(n: int) -> str:
 
 
 def build_table_event(rows: list[dict]) -> dict:
-    out = [{"subset": r["name"],
-            "coverage": f"{r['have']}/{r['asked']}",
-            "woff2": human(r["bytes"]),
-            "of original": f"{r['of_original']}%"}
-            for r in rows]
+    out = [[r["name"],
+            f"{r['have']}/{r['asked']}",
+            human(r["bytes"]),
+            f"{r['of_original']}%"]
+           for r in rows]
     if not out:
-        out = [{"subset": "—", "coverage": "—", "woff2": "—",
-                "of original": "—"}]
+        out = [["—", "—", "—", "—"]]
     return {"type": "table",
             "columns": ["subset", "coverage", "woff2",
                         "of original"],

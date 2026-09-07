@@ -214,17 +214,16 @@ def build_table_event(meta: dict, steps: list[dict],
     def pct(n: int) -> str:
         return f"{100 * n // src}%"
 
-    rows = [{"width": f"{s['width']}w",
-             "avif": human(s["avif"]) + f" ({pct(s['avif'])})",
-             "webp": human(s["webp"]) + f" ({pct(s['webp'])})",
-             "fallback": human(s[fallback_ext])
-             + f" ({pct(s[fallback_ext])})"}
+    # rows are ARRAYS of cells (scripting-guide's shape) — the UI
+    # renders row.map(cell => <td>); a dict row crashes it with
+    # "g.map is not a function"
+    rows = [[f"{s['width']}w",
+             human(s["avif"]) + f" ({pct(s['avif'])})",
+             human(s["webp"]) + f" ({pct(s['webp'])})",
+             human(s[fallback_ext]) + f" ({pct(s[fallback_ext])})"]
             for s in steps]
-    rows.insert(0, {"width": "original",
-                    "avif": human(src),
-                    "webp": "—",
-                    "fallback": f"{meta['source_width']}×"
-                                f"{meta['source_height']}"})
+    rows.insert(0, ["original", human(src), "—",
+                    f"{meta['source_width']}×{meta['source_height']}"])
     return {"type": "table",
             "columns": ["width", "avif", "webp", "fallback"],
             "rows": rows}

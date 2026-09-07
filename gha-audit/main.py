@@ -232,9 +232,8 @@ ICON = {"critical": "🔴", "warning": "🟠", "info": "ℹ️"}
 
 
 def build_table_event(findings: list[Finding]) -> dict:
-    rows = [{"severity": ICON[f.severity] + " " + f.severity,
-             "check": f.check, "file": f.file,
-             "job": f.job, "detail": f.detail[:70]}
+    rows = [[ICON[f.severity] + " " + f.severity,
+             f.check, f.file, f.job, f.detail[:70]]
             for f in findings]
     return {"type": "table",
             "columns": ["severity", "check", "file", "job",

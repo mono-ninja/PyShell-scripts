@@ -18,23 +18,25 @@ def build_table_event(findings: list[Finding], top_n: int = 50,
                       history: bool = False) -> dict:
     rows = []
     for f in findings[:top_n]:
-        row = {
-            "severity": SEVERITY_ICON.get(f.severity, "") + " "
-                        + f.severity,
-            "type": f.secret_type,
-            "file": f.file,
-            "line": f.line_no,
-            "finding": f.line_text,
-        }
+        row = [
+            SEVERITY_ICON.get(f.severity, "") + " " + f.severity,
+            f.secret_type,
+            f.file,
+            f.line_no,
+            f.line_text,
+        ]
         if history:
-            row["commit"] = (f.commit[:8] if f.commit else "") + \
-                (f" · {f.commit_date}" if f.commit_date else "")
+            row.append((f.commit[:8] if f.commit else "") +
+                       (f" · {f.commit_date}" if f.commit_date
+                        else ""))
         rows.append(row)
     if len(findings) > top_n:
-        rows.append({"severity": "", "type": "",
-                     "file": f"… {len(findings) - top_n} more",
-                     "line": "", "finding": "",
-                     **({"commit": ""} if history else {})})
+        more = ["", "",
+                f"… {len(findings) - top_n} more",
+                "", ""]
+        if history:
+            more.append("")
+        rows.append(more)
     columns = ["severity", "type", "file", "line", "finding"] + \
         (["commit"] if history else [])
     return {"type": "table", "columns": columns, "rows": rows}

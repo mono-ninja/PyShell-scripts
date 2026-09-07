@@ -21,11 +21,10 @@ draw from.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from collections import Counter, defaultdict
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 
 import requests
 
@@ -40,16 +39,40 @@ USER_AGENT = "PyShell-color-palette/1.0"
 MAX_CSS_BYTES = 2_000_000  # a single stylesheet bigger than this is skipped
 
 
+class Oversize(Exception):
+    """A stylesheet past the cap — abandoned mid-download, not read."""
+
+
 # ---------------------------------------------------------------------------
 # Fetching (the only I/O)
 # ---------------------------------------------------------------------------
 
-def fetch(session: requests.Session, url: str, timeout: int
-          ) -> requests.Response | None:
+def fetch_text(session: requests.Session, url: str, timeout: int,
+               max_bytes: int | None = None) -> str | None:
+    """The body as text, or None when the request failed. With
+    max_bytes the download is streamed and dropped as soon as it passes
+    the cap (Oversize) — the guard spends no bandwidth on a stylesheet
+    it will not read."""
     try:
-        resp = session.get(url, timeout=timeout)
-        resp.raise_for_status()
-        return resp
+        with session.get(url, timeout=timeout,
+                         stream=max_bytes is not None) as resp:
+            resp.raise_for_status()
+            if max_bytes is None:
+                return resp.text or ""
+            declared = resp.headers.get("Content-Length", "")
+            if declared.isdigit() and int(declared) > max_bytes:
+                raise Oversize(url)
+            body = bytearray()
+            for chunk in resp.iter_content(65_536):
+                body += chunk
+                if len(body) > max_bytes:
+                    raise Oversize(url)
+            # Only trust a charset the server actually declared; requests
+            # would otherwise guess latin-1 for text/css, which mangles a
+            # UTF-8 stylesheet.
+            charset = (resp.encoding if "charset" in
+                       resp.headers.get("Content-Type", "").lower() else None)
+            return bytes(body).decode(charset or "utf-8", errors="replace")
     except requests.RequestException as exc:
         log(f"  ⚠️ {url}: {type(exc).__name__}")
         return None
@@ -59,10 +82,9 @@ def gather_css_sources(session, url: str, max_stylesheets: int,
                        timeout: int) -> tuple[list[tuple[str, str]], int]:
     """([(label, css_text)], skipped_count) — the page's inline styles,
     its style attributes, and up to max_stylesheets linked files."""
-    resp = fetch(session, url, timeout)
-    if resp is None:
+    html = fetch_text(session, url, timeout)
+    if html is None:
         raise requests.RequestException(f"{url} never answered")
-    html = resp.text or ""
 
     sources: list[tuple[str, str]] = []
     for block in find_style_blocks(html):
@@ -74,15 +96,17 @@ def gather_css_sources(session, url: str, max_stylesheets: int,
     skipped = 0
     links = find_stylesheet_links(html, url)[:max_stylesheets]
     for css_url in links:
-        css_resp = fetch(session, css_url, timeout)
-        if css_resp is None:
+        try:
+            css = fetch_text(session, css_url, timeout, MAX_CSS_BYTES)
+        except Oversize:
+            log(f"  ⚠️ {css_url}: over "
+                f"{MAX_CSS_BYTES // 1_000_000} MB, skipped")
             skipped += 1
             continue
-        if len(css_resp.content or b"") > MAX_CSS_BYTES:
-            log(f"  ⚠️ {css_url}: over {MAX_CSS_BYTES // 1000} KB, skipped")
+        if css is None:
             skipped += 1
             continue
-        sources.append((css_url, css_resp.text or ""))
+        sources.append((css_url, css))
     return sources, skipped
 
 
@@ -104,13 +128,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def validate_url(url: str) -> str | None:
+def validate_args(args: argparse.Namespace) -> str | None:
+    """The first thing wrong with the arguments, or None. The manifest
+    holds the GUI to these ranges; a standalone run gets the same
+    answer instead of a silent surprise (a negative --max-stylesheets
+    used to slice sheets off the *end* of the list)."""
     try:
-        parts = urlsplit(url)
+        parts = urlsplit(args.url)
     except ValueError:
-        return f"{url!r} is not a parsable URL"
+        return f"{args.url!r} is not a parsable URL"
     if parts.scheme not in ("http", "https") or not parts.hostname:
-        return f"{url!r} needs a scheme and host (https://example.com/…)"
+        return f"{args.url!r} needs a scheme and host (https://example.com/…)"
+    if args.max_stylesheets < 1:
+        return "--max-stylesheets must be 1 or more"
+    if args.timeout < 1:
+        return "--timeout must be 1 or more (seconds)"
+    if args.top_n < 1:
+        return "--top-n must be 1 or more"
     return None
 
 
@@ -121,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Introspection mode — no pages are fetched", flush=True)
         return 0
 
-    problem = validate_url(args.url)
+    problem = validate_args(args)
     if problem:
         print(f"✗ {problem}", file=sys.stderr, flush=True)
         return 2

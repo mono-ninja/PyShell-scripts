@@ -22,7 +22,7 @@ from src.classifier import (
     analyze_suspicious_subnets,
     _SCAN_PATH_RE,
 )
-from src.parser import open_log_file, parse_log_line, classify_skip
+from src.parser import open_log_file, parse_log_line, classify_skip, is_compressed
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,31 @@ _PRUNE_THRESHOLD = 2
 # full request count — otherwise the ratio decays towards zero as an
 # aggressive scraper keeps hammering.
 _URL_SAMPLE_CAP = 200
+
+
+# How often to refresh the progress bar inside a single file.  The whole
+# 0-80 range used to be partitioned per FILE, so the common case — one big
+# access.log — left the bar pinned at 0% for the entire run.
+_PROGRESS_EVERY_LINES = 25000
+
+
+def _read_fraction(fh, total_bytes: int, lines_read: int) -> float:
+    """How far through the current file we are, as 0..1.
+
+    For a plain file the byte offset of the underlying buffer against
+    ``st_size`` is exact enough.  For a .gz/.bz2 archive the uncompressed size
+    is unknown, so fall back to a curve on the line count that approaches 1
+    without ever reaching it — the bar keeps moving and still lands on the
+    slice boundary when the file is done.
+    """
+    if total_bytes:
+        try:
+            pos = fh.buffer.tell()
+        except (AttributeError, OSError, ValueError):
+            pos = 0
+        if pos:
+            return min(1.0, pos / total_bytes)
+    return 1.0 - 1.0 / (1.0 + lines_read / 500000)
 
 
 def _prune_single_request_profiles(profiles: dict) -> None:
@@ -101,12 +126,21 @@ def analyze_logs(
 
     # ── Phase 1: parse + aggregate (0-80%) ──
     for i, log_path in enumerate(log_files):
+        # Each file owns a slice of the 0-80 range and reports inside it, so
+        # the bar advances during a single multi-GB file too.
+        lo = (i / n_files) * 80 if n_files else 0
+        hi = ((i + 1) / n_files) * 80 if n_files else 80
         if progress_callback:
-            pct = (i / n_files) * 80 if n_files else 0
-            progress_callback(pct, f"Parsing {log_path.name} ({i + 1}/{n_files})")
+            progress_callback(lo, f"Parsing {log_path.name} ({i + 1}/{n_files})")
+
+        try:
+            size_bytes = 0 if is_compressed(log_path) else log_path.stat().st_size
+        except OSError:
+            size_bytes = 0
 
         file_lines = 0
         _prune_counter = 0
+        _progress_counter = 0
         try:
             with open_log_file(log_path) as fh:
                 for line in fh:
@@ -114,6 +148,17 @@ def analyze_logs(
                         break
                     total_lines += 1
                     file_lines += 1
+
+                    if progress_callback:
+                        _progress_counter += 1
+                        if _progress_counter >= _PROGRESS_EVERY_LINES:
+                            _progress_counter = 0
+                            frac = _read_fraction(fh, size_bytes, file_lines)
+                            progress_callback(
+                                lo + (hi - lo) * frac,
+                                f"Parsing {log_path.name} ({i + 1}/{n_files}) "
+                                f"- {file_lines:,} lines",
+                            )
 
                     entry = parse_log_line(line)
                     if not entry:

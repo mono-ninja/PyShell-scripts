@@ -54,7 +54,7 @@ never leaves the machine. The result is the `speech.wav` artifact.
 ## Exit codes
 
 - `0` — the audio was written.
-- `1` — prerequisite missing (package / models — with the exact
-  instruction), or synthesis failed.
-- `2` — bad arguments (empty/oversized text, unknown voice, speed out
-  of range).
+- `1` — prerequisite missing (a package, the models — with the exact
+  instruction — or a download that failed), or synthesis failed.
+- `2` — bad arguments (empty/oversized text, a voice the model doesn't
+  carry, speed out of range).

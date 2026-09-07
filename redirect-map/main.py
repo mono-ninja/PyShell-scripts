@@ -440,12 +440,11 @@ def build_table_event(matches: list[Match]) -> dict:
             verdict = "⚫ not found"
         if m.verify:
             verdict += f" · {m.verify}"
-        rows.append({"old": short(m.old.url),
-                     "new": short(m.new_url) if m.new_url else "—",
-                     "confidence": m.tier, "live": m.verify or "—"})
+        rows.append([short(m.old.url),
+                     short(m.new_url) if m.new_url else "—",
+                     m.tier, m.verify or "—"])
     if not rows:
-        rows = [{"old": "—", "new": "—", "confidence": "—",
-                 "live": "—"}]
+        rows = [["—", "—", "—", "—"]]
     return {"type": "table",
             "columns": ["old", "new", "confidence", "live"],
             "rows": rows}

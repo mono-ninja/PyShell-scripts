@@ -265,12 +265,11 @@ def human(n: int) -> str:
 # -------------------------------------------------------------------- report
 
 def build_table_event(a: dict) -> dict:
-    rows = [{
-        "url": s["url"][:70], "ms": round(s["time"] or 0),
-        "type": s["type"], "size": human(s["size"]),
-        "ttfb": s["timings"]["wait"],
-        "receive": s["timings"]["receive"],
-    } for s in a["slowest"]]
+    rows = [[s["url"][:70], round(s["time"] or 0),
+             s["type"], human(s["size"]),
+             s["timings"]["wait"],
+             s["timings"]["receive"]]
+            for s in a["slowest"]]
     return {"type": "table",
             "columns": ["url", "ms", "type", "size", "ttfb", "receive"],
             "rows": rows}

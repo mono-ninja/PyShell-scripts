@@ -231,10 +231,13 @@ def check_variables(key: str, token: str,
 # ------------------------------------------------------------------ report
 
 def build_table_event(rows: list[dict]) -> dict:
+    # rows arrive as dicts (they also feed the markdown report) —
+    # the table gets arrays of cells aligned with the columns
     return {"type": "table",
             "columns": ["component", "exported as", "svg", "png"],
-            "rows": rows or [{"component": "—", "exported as": "—",
-                              "svg": "—", "png": "—"}]}
+            "rows": [[r["component"], r["exported as"],
+                      r["svg"], r["png"]] for r in rows]
+            or [["—", "—", "—", "—"]]}
 
 
 def human(n: int) -> str:

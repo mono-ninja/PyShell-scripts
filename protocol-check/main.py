@@ -220,30 +220,30 @@ def build_table_event(results: dict) -> dict:
     comp, v6 = results["compression"], results["ipv6"]
     ka, res = results["keepalive"], results["resumption"]
     rows = [
-        {"check": "alpn", "result": a.get("negotiated", "probe failed"),
-         "detail": a.get("tls_version", "")},
-        {"check": "http/3 (Alt-Svc)",
-         "result": "announced" if alt.get("announced")
+        ["alpn", a.get("negotiated", "probe failed"),
+         a.get("tls_version", "")],
+        ["http/3 (Alt-Svc)",
+         "announced" if alt.get("announced")
          else "not advertised",
-         "detail": (f"port {alt.get('port')}"
-                    if alt.get("announced") else "—")},
-        {"check": "compression",
-         "result": comp.get("encoding", "probe failed"),
-         "detail": f"-{comp.get('saved_pct', '—')}%"},
-        {"check": "ipv6",
-         "result": ("connected" if v6.get("connected")
-                    else ("AAAA but broken"
-                          if v6.get("aaaa") else "no AAAA")),
-         "detail": v6.get("address", "") or "—"},
-        {"check": "keep-alive",
-         "result": "works" if ka.get("second_on_same_connection")
+         (f"port {alt.get('port')}"
+          if alt.get("announced") else "—")],
+        ["compression",
+         comp.get("encoding", "probe failed"),
+         f"-{comp.get('saved_pct', '—')}%"],
+        ["ipv6",
+         ("connected" if v6.get("connected")
+          else ("AAAA but broken"
+                if v6.get("aaaa") else "no AAAA")),
+         v6.get("address", "") or "—"],
+        ["keep-alive",
+         "works" if ka.get("second_on_same_connection")
          else "fails",
-         "detail": ka.get("note", "2 requests, 1 connection")},
-        {"check": "tls resumption",
-         "result": ("resumed" if res.get("resumed")
-                    else ("n/a" if res.get("resumed") is None
-                          else "full handshake")),
-         "detail": res.get("note") or "session reuse"},
+         ka.get("note", "2 requests, 1 connection")],
+        ["tls resumption",
+         ("resumed" if res.get("resumed")
+          else ("n/a" if res.get("resumed") is None
+                else "full handshake")),
+         res.get("note") or "session reuse"],
     ]
     return {"type": "table", "columns": ["check", "result", "detail"],
             "rows": rows}

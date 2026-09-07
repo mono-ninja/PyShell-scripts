@@ -1,8 +1,8 @@
 schema: 1
 id: com.pyshell.assetminify
 name: Asset Minify
-version: 0.1
-description: Minify CSS and JS through the system terser and clean-css-cli — a wrapper, like cURL — with vendor-prefixing via autoprefixer, never overwriting the originals
+version: 1.0
+description: Minify CSS and JS with the built-in stdlib minifier, or through the system terser and clean-css-cli when they are installed — never overwriting the originals
 icon: lucide:wrench
 category: Media
 
@@ -89,13 +89,17 @@ inputs:
     binding: {kind: arg, flag: "--recursive", style: flag}
 
   # --- Options ---
-  - key: prefix
-    type: bool
-    label: Vendor-prefix CSS (autoprefixer)
-    help: Runs autoprefixer (postcss) before minifying — needs postcss-cli + autoprefixer installed
-    default: false
+  - key: engine
+    type: choice
+    label: Engine
+    help: Automatic uses terser/clean-css when they are installed and the built-in Python minifier when they are not
+    default: auto
     group: Options
-    binding: {kind: arg, flag: "--prefix", style: flag}
+    options:
+      - {value: auto, label: "Automatic (system tools when present)"}
+      - {value: builtin, label: "Built-in (pure Python, no npm)"}
+      - {value: system, label: "System binaries (terser / clean-css)"}
+    binding: {kind: arg, flag: "--engine", style: space}
 
   - key: output_folder
     type: dir

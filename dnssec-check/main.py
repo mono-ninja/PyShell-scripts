@@ -413,11 +413,9 @@ VERDICT_ICON = {VERDICT_SECURE: "🟢", VERDICT_INSECURE: "⚪",
 
 
 def build_table_event(result: ChainResult) -> dict:
-    rows = [{
-        "zone": step.zone, "step": step.action,
-        "result": "✓" if step.ok else "✗",
-        "note": step.note,
-    } for step in result.steps]
+    rows = [[step.zone, step.action,
+             "✓" if step.ok else "✗", step.note]
+            for step in result.steps]
     return {"type": "table",
             "columns": ["zone", "step", "result", "note"],
             "rows": rows}

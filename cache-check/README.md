@@ -38,8 +38,11 @@ python3 main.py --url https://example.com/ --requests 5 --interval 2
 
 ### What the report answers
 
-- **Is it cached?** — HIT/MISS sequence, or Age growing when status
-  headers are absent.
+- **Is it cached?** — the HIT/MISS sequence in order, reading the
+  whole CDN vocabulary (`UPDATING`, `STALE` and `REVALIDATED` came
+  from cache; `EXPIRED`, `BYPASS`, `DYNAMIC`, `PASS` came from the
+  origin), with each status explained in plain words — or Age growth
+  when status headers are absent.
 - **For how long?** — `max-age`/`s-maxage` TTL minus the observed Age.
 - **Can it refresh cheaply?** — the conditional request: 304 means
   validators are honored.
@@ -53,7 +56,7 @@ python3 main.py --url https://example.com/ --requests 5 --interval 2
 |---|---|
 | 0 | ran; the report describes the cache story |
 | 1 | unreachable — connection failed (check the URL / your link) |
-| 2 | bad arguments (no http(s) URL, requests out of 2–10) |
+| 2 | bad arguments (no http(s) URL, or requests/interval/timeout out of range) |
 
 ## Layout
 
@@ -62,10 +65,9 @@ cache-check/
 ├── pyshell.yaml      # manifest
 ├── main.py           # probe · decode · verdicts · report
 ├── requirements.txt  # requests
-├── docs/
-│   ├── pyshell.md    # EN docs
-│   └── pyshell_ua.md # UA docs
-└── tests/            # 12 tests against a local fake-CDN server
+└── docs/
+    ├── pyshell.md    # EN docs
+    └── pyshell_ua.md # UA docs
 ```
 
 ## License

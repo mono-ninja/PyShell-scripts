@@ -375,14 +375,14 @@ def build_table_event(configs: list[WebConfig]) -> dict:
         counts = {}
         for f in cfg.flags:
             counts[f.severity] = counts.get(f.severity, 0) + 1
-        rows.append({
-            "file": os.path.basename(cfg.path),
-            "format": cfg.fmt,
-            "critical": counts.get("critical", 0),
-            "warnings": counts.get("warning", 0),
-            "good": counts.get("good", 0),
-            "verdict": cfg.verdict,
-        })
+        rows.append([
+            os.path.basename(cfg.path),
+            cfg.fmt,
+            counts.get("critical", 0),
+            counts.get("warning", 0),
+            counts.get("good", 0),
+            cfg.verdict,
+        ])
     return {"type": "table",
             "columns": ["file", "format", "critical", "warnings",
                         "good", "verdict"],

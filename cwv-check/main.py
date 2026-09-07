@@ -144,13 +144,13 @@ def build_table_event(url: str, level: str,
     for ff in ("PHONE", "DESKTOP"):
         for metric in METRICS:
             p75 = results.get(ff, {}).get(metric)
-            rows.append({
-                "form factor": "phone" if ff == "PHONE" else "desktop",
-                "metric": SHORT[metric],
-                "p75": fmt(metric, p75) if p75 is not None else "—",
-                "assessment": assess(metric, p75)
+            rows.append([
+                "phone" if ff == "PHONE" else "desktop",
+                SHORT[metric],
+                fmt(metric, p75) if p75 is not None else "—",
+                assess(metric, p75)
                 if p75 is not None else "no data",
-            })
+            ])
     return {"type": "table",
             "columns": ["form factor", "metric", "p75",
                         "assessment"],

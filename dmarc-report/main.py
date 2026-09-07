@@ -338,16 +338,16 @@ def build_table_event(analysis: dict) -> dict:
     rows = []
     for s in sorted(analysis["sources"].values(),
                     key=lambda x: -x.messages):
-        rows.append({
-            "source ip": s.ip + (f" ({s.ptr})" if s.ptr else ""),
-            "messages": s.messages,
-            "dmarc pass": f"{100 * s.dmarc_pass / s.messages:.0f}%"
+        rows.append([
+            s.ip + (f" ({s.ptr})" if s.ptr else ""),
+            s.messages,
+            f"{100 * s.dmarc_pass / s.messages:.0f}%"
             if s.messages else "—",
-            "spf aligned": s.spf_aligned,
-            "dkim aligned": s.dkim_aligned,
-            "disposition": ", ".join(f"{k}:{v}" for k, v
-                                     in sorted(s.dispositions.items())),
-        })
+            s.spf_aligned,
+            s.dkim_aligned,
+            ", ".join(f"{k}:{v}" for k, v
+                      in sorted(s.dispositions.items())),
+        ])
     return {"type": "table",
             "columns": ["source ip", "messages", "dmarc pass",
                         "spf aligned", "dkim aligned", "disposition"],

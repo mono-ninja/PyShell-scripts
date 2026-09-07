@@ -96,6 +96,18 @@ def discover_log_files(logs_dir: Path) -> tuple[list[Path], int]:
     return matched, total_files - len(matched)
 
 
+def is_compressed(path: Path) -> bool:
+    """Return True if *path* is a .gz/.bz2 archive.
+
+    Callers use this to decide whether ``st_size`` is a usable denominator for
+    read progress: for a compressed file the on-disk size does not correspond
+    to the number of bytes the reader will consume.
+    """
+    suffixes = ''.join(path.suffixes)
+    return (path.suffix in ('.gz', '.bz2')
+            or suffixes.endswith('.gz') or suffixes.endswith('.bz2'))
+
+
 def open_log_file(path: Path):
     """Open *path* for text reading, transparently decompressing .gz/.bz2."""
     suffixes = ''.join(path.suffixes)

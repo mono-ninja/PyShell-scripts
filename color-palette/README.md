@@ -14,10 +14,16 @@ it back ready to use:
   machine-readable.
 
 Every CSS color syntax parses (`#fff`, `#rrggbb`, `#rrggbbaa`,
-`rgb()/rgba()`, `hsl()/hsla()` with `deg`/`turn`, all 148 named
-colors); syntax variants merge at parse time, and **near-identical
-colors group together** by perceptual HSL distance — the
-hand-tuned `#343434` next to `#333333` becomes one group.
+`rgb()/rgba()` and `hsl()/hsla()` in both the comma and the modern
+space form, `oklch()`/`oklab()`, all 148 named colors); syntax
+variants merge at parse time, and **near-identical colors group
+together** by perceptual HSL distance — the hand-tuned `#343434` next
+to `#333333` becomes one group.
+
+A `var(--brand)` reference is left out rather than guessed at (it
+resolves only against the whole cascade) — and a custom-property
+*name* is never read as a color: `var(--brand-red-500)` is a name, not
+the color red.
 
 **Static CSS only.** The page is fetched once; each linked stylesheet
 is fetched once (politely capped). Colors painted by JavaScript at

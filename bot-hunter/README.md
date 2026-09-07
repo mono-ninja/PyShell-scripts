@@ -14,7 +14,8 @@ on the aggregated stats.
 ## What it detects
 
 - **Known bots** — Googlebot, Bingbot, Yandex, GPTBot, Claude-Web,
-  AhrefsBot and more (46 signatures), each marked legitimate or not.
+  ClaudeBot, Amazonbot, AhrefsBot and more (58 signatures), each marked
+  legitimate or not.
 - **Disguised bots** — IPs with a browser User-Agent but systematic
   scanning (`/wp-json/`, `/plugins/`, high URL diversity). Most tools count
   these as human; Bot Hunter does not.

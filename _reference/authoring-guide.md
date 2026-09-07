@@ -176,18 +176,18 @@ the format `lucide:<name>`, where `<name>` is one of the identifiers listed
 below (a subset of [lucide.dev/icons](https://lucide.dev/icons)):
 
 ```
-activity, alert-triangle, archive, bar-chart, bell, bot, brain, bug,
-calculator, calendar, camera, check, check-circle, clock, cloud,
+activity, alert-triangle, archive, at-sign, bar-chart, bell, bot, brain,
+bug, calculator, calendar, camera, check, check-circle, clock, cloud,
 cloud-download, cloud-upload, code, compass, copy, cpu, database,
 dollar-sign, download, eye, file, file-code, file-json, file-text, filter,
 flag, flask-conical, folder, folder-open, git-branch, git-commit, globe,
 grid, hard-drive, hash, heart, help-circle, home, image, info, key,
 layers, line-chart, link, list, lock, mail, map, map-pin, message-square,
-mic, monitor, music, package, pause, pie-chart, play, printer,
-refresh-cw, rocket, rotate-cw, save, search, send, server, settings,
-shield, shield-check, sliders, smartphone, sparkles, square, star, table,
-target, terminal, timer, trash, trending-down, trending-up, upload, user,
-users, video, webhook, wifi, wrench, x-circle, zap
+mic, monitor, music, package, pause, pie-chart, play, printer, refresh-cw,
+rocket, rotate-cw, save, search, send, server, settings, shield,
+shield-check, sliders, smartphone, sparkles, square, star, table, target,
+terminal, timer, trash, trending-down, trending-up, upload, user, users,
+video, webhook, wifi, wrench, x-circle, zap
 ```
 
 An unknown name after `lucide:` (like any value without this prefix) is shown

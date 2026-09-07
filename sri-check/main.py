@@ -290,16 +290,15 @@ def short(url: str, width: int = 64) -> str:
 
 
 def build_table_event(resources: list[Resource]) -> dict:
-    rows = [{"resource": short(r.url), "kind": r.kind,
-             "side": r.site,
-             "integrity": r.hash_state if r.integrity
+    rows = [[short(r.url), r.kind,
+             r.site,
+             r.hash_state if r.integrity
              else ("—" if not r.cross_origin else "none"),
-             "verdict": worst(r)}
+             worst(r)]
             for r in resources]
     if not rows:
-        rows = [{"resource": "—", "kind": "—", "side": "—",
-                 "integrity": "—",
-                 "verdict": "no external scripts or stylesheets"}]
+        rows = [["—", "—", "—", "—",
+                 "no external scripts or stylesheets"]]
     return {"type": "table",
             "columns": ["resource", "kind", "side", "integrity",
                         "verdict"],

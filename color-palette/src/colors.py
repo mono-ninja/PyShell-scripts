@@ -113,33 +113,131 @@ def luminance(hex_color: str) -> float:
 
 def parse_color(value: str) -> str | None:
     """Any CSS color value → normalized #RRGGBB (alpha dropped — the
-    palette wants the color, not the transparency), or None."""
+    palette wants the color, not the transparency), or None.
+
+    Legacy comma syntax and the modern space syntax both parse
+    (`rgb(0 0 0 / 50%)`, `hsl(210 100% 50%)` — what Tailwind and every
+    current framework emit), plus `#RGB`/`#RGBA`/`#RRGGBB`/`#RRGGBBAA`
+    and `oklch()`/`oklab()`. `var()` and `color-mix()` stay None on
+    purpose: resolving them needs the whole cascade, and a guess is
+    worse than an honest gap. Kept in sync with a11y-check/main.py.
+    """
     value = (value or '').strip().lower()
     if not value:
         return None
     if value in CSS_NAMED_COLORS:
         return CSS_NAMED_COLORS[value]
-    if re.match(r'^#[0-9a-f]{3}$', value):
-        return '#' + ''.join(c * 2 for c in value[1:]).upper()
-    if re.match(r'^#[0-9a-f]{6}$', value):
-        return value.upper()
-    if re.match(r'^#[0-9a-f]{8}$', value):
-        return ('#' + value[1:7]).upper()
-    m = re.match(r'^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', value)
-    if m:
-        return rgb_to_hex(m.group(1), m.group(2), m.group(3))
-    m = re.match(r'^rgba?\(\s*([\d.]+)%\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%',
-                 value)
-    if m:
-        return rgb_to_hex(round(float(m.group(1)) * 2.55),
-                          round(float(m.group(2)) * 2.55),
-                          round(float(m.group(3)) * 2.55))
-    m = re.match(r'^hsla?\(\s*([\d.]+)(?:deg|turn)?\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%',
-                 value)
-    if m:
-        h = float(m.group(1)) * 360 if 'turn' in value else float(m.group(1))
-        return hsl_to_hex(h, float(m.group(2)), float(m.group(3)))
+    if value.startswith('#'):
+        return _parse_hex(value)
+    m = re.fullmatch(r'(rgba?|hsla?|oklch|oklab)\(\s*(.*?)\s*\)', value,
+                     re.S)
+    if not m:
+        return None
+    func, parts = m.group(1), [p for p in re.split(r'[\s,/]+', m.group(2))
+                               if p]
+    if len(parts) < 3:
+        return None
+    if func.startswith('rgb'):
+        channels = [_css_channel(p) for p in parts[:3]]
+        if any(c is None for c in channels):
+            return None
+        return rgb_to_hex(*channels)
+    if func.startswith('hsl'):
+        h, s, l = (_css_hue(parts[0]), _css_percent(parts[1]),
+                   _css_percent(parts[2]))
+        if h is None or s is None or l is None:
+            return None
+        return hsl_to_hex(h, s, l)
+    if func == 'oklch':
+        lightness = _css_scaled(parts[0], 1.0)
+        chroma = _css_scaled(parts[1], 0.4)
+        hue = _css_hue(parts[2])
+        if lightness is None or chroma is None or hue is None:
+            return None
+        rad = math.radians(hue)
+        return _oklab_to_hex(lightness, chroma * math.cos(rad),
+                             chroma * math.sin(rad))
+    lightness = _css_scaled(parts[0], 1.0)
+    a, b = _css_scaled(parts[1], 0.4), _css_scaled(parts[2], 0.4)
+    if lightness is None or a is None or b is None:
+        return None
+    return _oklab_to_hex(lightness, a, b)
+
+
+def _parse_hex(value: str) -> str | None:
+    digits = value[1:]
+    if not re.fullmatch(r'[0-9a-f]+', digits):
+        return None
+    if len(digits) in (3, 4):            # #RGB, #RGBA
+        return '#' + ''.join(c * 2 for c in digits[:3]).upper()
+    if len(digits) in (6, 8):            # #RRGGBB, #RRGGBBAA
+        return '#' + digits[:6].upper()
     return None
+
+
+def _css_channel(token: str) -> int | None:
+    """One rgb() channel: 0–255, or a percentage of 255."""
+    try:
+        raw = (float(token[:-1]) * 2.55 if token.endswith('%')
+               else float(token))
+    except ValueError:
+        return None
+    return max(0, min(255, round(raw)))
+
+
+def _css_percent(token: str) -> float | None:
+    try:
+        return float(token[:-1] if token.endswith('%') else token)
+    except ValueError:
+        return None
+
+
+def _css_scaled(token: str, full: float) -> float | None:
+    """A number, or a percentage of `full` (oklch lightness/chroma)."""
+    try:
+        return (float(token[:-1]) / 100 * full if token.endswith('%')
+                else float(token))
+    except ValueError:
+        return None
+
+
+def _css_hue(token: str) -> float | None:
+    m = re.fullmatch(r'([-+]?[\d.]+)(deg|grad|rad|turn)?', token)
+    if not m:
+        return None
+    try:
+        value = float(m.group(1))
+    except ValueError:
+        return None
+    unit = m.group(2) or 'deg'
+    if unit == 'grad':
+        return value * 0.9
+    if unit == 'rad':
+        return math.degrees(value)
+    if unit == 'turn':
+        return value * 360
+    return value
+
+
+def _oklab_to_hex(lightness: float, a: float, b: float) -> str:
+    """OKLab → sRGB (the spec's matrices), clipped into gamut."""
+    l_ = lightness + 0.3963377774 * a + 0.2158037573 * b
+    m_ = lightness - 0.1055613458 * a - 0.0638541728 * b
+    s_ = lightness - 0.0894841775 * a - 1.2914855480 * b
+    l, m, s = l_ ** 3, m_ ** 3, s_ ** 3
+    return rgb_to_hex(
+        _srgb_channel(4.0767416621 * l - 3.3077115913 * m
+                      + 0.2309699292 * s),
+        _srgb_channel(-1.2684380046 * l + 2.6097574011 * m
+                      - 0.3413193965 * s),
+        _srgb_channel(-0.0041960863 * l - 0.7034186147 * m
+                      + 1.7076147010 * s))
+
+
+def _srgb_channel(v: float) -> int:
+    v = max(0.0, min(1.0, v))
+    v = v * 12.92 if v <= 0.0031308 else 1.055 * (v ** (1 / 2.4)) - 0.055
+    return max(0, min(255, round(v * 255)))
 
 
 # ─── distance + grouping ────────────────────────────────────────────────
