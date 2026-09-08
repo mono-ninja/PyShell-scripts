@@ -45,7 +45,8 @@ python3 main.py --url https://example.com/
 - **Results tab** — a table (form factor · metric · p75 ·
   assessment), the 25-week trend chart, and the report with the
   lab-vs-field headline.
-- **Artifacts** — `report.md`, `findings.json`.
+- **Artifacts** — `report.md` (the same report, the trend
+  included as prose), `findings.json`.
 
 ## Exit codes
 
@@ -62,8 +63,7 @@ cwv-check/
 ├── pyshell.yaml      # manifest
 ├── main.py           # CrUX queries · bands · trend · headline
 ├── requirements.txt  # requests
-├── docs/             # EN + UA docs
-└── tests/            # 11 tests: bands, records, mocked CLI
+└── docs/             # EN + UA docs
 ```
 
 ## License

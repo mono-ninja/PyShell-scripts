@@ -8,15 +8,16 @@
 #     reason: "why script from here is effectively arbitrary"
 #
 # Curated to the classics (Google CSP Evaluator's list + the JSONP
-# family). Match rule: a policy source host equals the entry, or
-# ends with the entry's non-wildcard part.
+# family). Match rule: a wildcard entry ("*.github.io") covers that
+# domain and its subdomains; a bare entry ("unpkg.com") matches the
+# host exactly — no subdomains unless the entry says so. The first
+# entry that matches a source explains it, so keep the specific
+# entries above the general ones.
 
 hosts:
   - host: "*.google.com"
     reason: "JSONP endpoints — a callback parameter turns a fetch into arbitrary script execution"
 
-  - host: "googleapis.com"
-    reason: "the AJAX/JSONP host family; also *.googleapis.com subdomains serve user content"
 
   - host: "raw.githubusercontent.com"
     reason: "any user's repository content — attacker-uploaded script, served with your blessing"
@@ -38,6 +39,9 @@ hosts:
 
   - host: "*.storage.googleapis.com"
     reason: "public buckets host arbitrary content"
+
+  - host: "*.googleapis.com"
+    reason: "the AJAX/JSONP host family — a callback parameter turns a fetch into arbitrary script, and subdomains serve user content"
 
   - host: "*.amazonaws.com"
     reason: "S3 buckets host arbitrary content — subdomains are user-controlled"

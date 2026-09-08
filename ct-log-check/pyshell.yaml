@@ -1,0 +1,46 @@
+schema: 1
+id: com.pyshell.ctlogcheck
+name: CT Log Check
+version: 0.3
+description: "Every certificate ever issued for the domain — the crt.sh transparency feed as a timeline: issuance by month, the issuers grouped by CA (not by the intermediate that signed, and precertificates folded into their final certificate), wildcards, names that may no longer exist, certs valid right now — plus the CAA policy (who is allowed to issue, via DNS-over-HTTPS, tree-climbed the way a CA does) compared with the CAs holding live certificates: allowed / outside the list / unrecognized, with the predates-your-policy nuance said aloud — the historical twin of TLS Audit's live one"
+icon: lucide:database
+category: Recon
+
+runtime:
+  entry: main.py
+  python: ">=3.11,<3.15"
+  requirements: requirements.txt
+  timeout: 180
+
+inputs:
+  - key: domain
+    type: string
+    label: Domain
+    help: The registrable domain to look up in the certificate transparency logs — every cert ever issued for it or any subdomain
+    required: true
+    group: Target
+    binding: {kind: arg, flag: "--domain", style: space}
+
+  - key: timeout
+    type: int
+    label: "crt.sh timeout (s)"
+    help: The feed can be slow on big domains; two retries with backoff are built in
+    min: 10
+    max: 120
+    default: 45
+    group: Target
+    binding: {kind: arg, flag: "--timeout", style: space}
+
+  - key: skip_caa
+    type: bool
+    label: Skip the CAA comparison
+    help: "Off by default: the domain's CAA records (DNS-over-HTTPS, parents climbed like a CA does) are compared with the CAs holding live certificates — allowed / outside the list / unrecognized"
+    default: false
+    group: Target
+    binding: {kind: arg, flag: "--skip-caa", style: flag}
+
+outputs:
+  artifacts:
+    - "findings.json"
+    - "report.md"
+  result: markdown

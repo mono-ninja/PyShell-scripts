@@ -122,24 +122,55 @@ def metric_p75(record: dict) -> dict:
 
 
 def history_series(response: dict) -> dict:
-    """{metric: [p75, …]} across the collection periods."""
+    """{metric: [p75 | None, …]} across the collection periods.
+
+    queryHistoryRecord answers with **one** record whose metrics
+    carry `percentilesTimeseries.p75s` — a value per collection
+    period, `null` where the period had too little data.  The
+    positions line up with `collectionPeriods`, so a gap is kept
+    as a gap rather than closed up.
+    """
     out = {}
-    for record in response.get("record", []) \
-            if isinstance(response.get("record"), list) else []:
-        for name, m in (record.get("metrics") or {}).items():
-            p75 = m.get("percentiles", {}).get("p75")
-            if p75 is not None:
-                try:
-                    out.setdefault(name, []).append(float(p75))
-                except (TypeError, ValueError):
-                    continue
+    record = response.get("record")
+    if not isinstance(record, dict):
+        return out
+    metrics = record.get("metrics") or {}
+    for name in METRICS:
+        p75s = (metrics.get(name) or {}).get(
+            "percentilesTimeseries", {}).get("p75s")
+        if not isinstance(p75s, list):
+            continue
+        values = []
+        for p75 in p75s:
+            try:
+                values.append(None if p75 is None else float(p75))
+            except (TypeError, ValueError):
+                values.append(None)
+        if any(v is not None for v in values):
+            out[name] = values
+    return out
+
+
+def history_labels(response: dict) -> list[str]:
+    """The collection periods' end dates — the chart's X axis."""
+    record = response.get("record")
+    if not isinstance(record, dict):
+        return []
+    out = []
+    for period in record.get("collectionPeriods") or []:
+        last = (period or {}).get("lastDate") or {}
+        try:
+            out.append(f"{int(last['year']):04d}-"
+                       f"{int(last['month']):02d}-"
+                       f"{int(last['day']):02d}")
+        except (KeyError, TypeError, ValueError):
+            return []
     return out
 
 
 # -------------------------------------------------------------------- report
 
-def build_table_event(url: str, level: str,
-                      results: dict) -> dict:
+def build_table_event(results: dict) -> dict:
     rows = []
     for ff in ("PHONE", "DESKTOP"):
         for metric in METRICS:
@@ -157,24 +188,89 @@ def build_table_event(url: str, level: str,
             "rows": rows}
 
 
-def build_chart_event(series: dict) -> dict:
-    if not series:
+def trend_window(series: dict) -> tuple[dict, int]:
+    """The metrics we have, and the newest span they all cover.
+
+    The window is the longest tail in which no metric has a gap
+    (INP, added to CrUX later, is routinely null in the oldest
+    periods) — a shorter honest span, never a filled-in point.
+    The chart and the report's trend section share it, so the two
+    always describe the same periods.
+    """
+    present = {m: v for m, v in series.items() if m in METRICS}
+    if not present:
+        return {}, 0
+    window = 0
+    for i in range(1, min(len(v) for v in present.values()) + 1):
+        if any(v[-i] is None for v in present.values()):
+            break
+        window = i
+    return present, window
+
+
+def span_label(labels: list[str] | None, window: int) -> str:
+    """"2026-06-14 → 2026-08-30", or the period count when the
+    collection periods did not parse."""
+    if labels and len(labels) >= window:
+        return f"{labels[-window]} → {labels[-1]}"
+    return f"the last {window} CrUX collection periods"
+
+
+def build_chart_event(series: dict,
+                      labels: list[str] | None = None) -> dict:
+    """The p75 trend over the gapless window (see trend_window)."""
+    present, window = trend_window(series)
+    if not window:
         return {"type": "status", "message": "no history"}
-    best = max(series.values(), key=len)
-    labels = [f"-{len(best) - i}w" for i in range(len(best))]
-    out_series = []
-    for metric in METRICS:
-        if metric in series:
-            out_series.append({"name": SHORT[metric],
-                               "values": series[metric]})
+    out_series = [{"name": SHORT[m], "values": present[m][-window:]}
+                  for m in METRICS if m in present]
+    out_labels = labels[-window:] if labels and len(labels) >= window \
+        else [("now" if i == window - 1 else f"-{window - 1 - i}w")
+              for i in range(window)]
     return {"type": "chart", "chart_type": "line",
-            "title": "25-week p75 trend (origin, both form factors)",
-            "labels": labels[-len(best):],
+            "title": f"p75 trend — last {window} CrUX collection "
+                     "periods (origin, both form factors)",
+            "labels": out_labels,
             "series": out_series}
 
 
+def build_trend_section(series: dict,
+                        labels: list[str] | None) -> list[str]:
+    """The history as prose — report.md is read on its own, away
+    from the Results tab where the chart lives.
+
+    Two points are the minimum for a direction; below that the
+    section is absent (the notes already say why), never a
+    sentence about a trend that is one measurement.
+    """
+    present, window = trend_window(series)
+    if window < 2:
+        return []
+    out = ["\n## The trend\n",
+           f"{span_label(labels, window)} — the history record is "
+           "**origin-level and form-factor-agnostic**, whatever "
+           "level the numbers above are.\n"]
+    for metric in METRICS:
+        if metric not in present:
+            continue
+        values = present[metric][-window:]
+        first, last = values[0], values[-1]
+        pct = ((last - first) / first * 100) if first else 0.0
+        if abs(pct) < 5:
+            direction = "→ flat"
+        elif pct < 0:
+            direction = f"↘ improving {abs(pct):.0f}%"
+        else:
+            direction = f"↗ worsening {abs(pct):.0f}%"
+        out.append(f"- **{SHORT[metric]}** {fmt(metric, first)} → "
+                   f"{fmt(metric, last)} "
+                   f"({assess(metric, last)}) — {direction}")
+    return out
+
+
 def build_markdown(url: str, level: str, results: dict,
-                   series: dict, notes: list[str]) -> str:
+                   notes: list[str], series: dict | None = None,
+                   labels: list[str] | None = None) -> str:
     out = [f"# CWV Check — Report\n",
            f"URL: `{url}` · data level: **{level}** ("
            + ("page-specific" if level == "page"
@@ -197,6 +293,7 @@ def build_markdown(url: str, level: str, results: dict,
         out.append("")
     for n in notes:
         out.append(f"- ℹ️ {n}")
+    out.extend(build_trend_section(series or {}, labels))
     out.append("\n## The lab-vs-field headline\n")
     worst = ""
     for ff in ("PHONE", "DESKTOP"):
@@ -224,6 +321,9 @@ def build_markdown(url: str, level: str, results: dict,
     out.append("- Thin pages fall back to the origin record — "
                "the header of this report says which level the "
                "numbers are.")
+    out.append("- The trend is always the ORIGIN's, across all "
+               "form factors: it is the record stable enough to "
+               "compare period to period.")
     out.append("\n## Related\n")
     out.append("- **Server Timing / HAR Analyze / Cache Check** — "
                "the lab side: what is slow and why.")
@@ -313,8 +413,7 @@ def main(argv: list[str] | None = None) -> int:
                                 args.timeout)
             results[ff] = metric_p75(record)
         except LookupError:
-            notes.append(f"{ff}: no page record — falling back to "
-                         "the origin")
+            results[ff] = {}
         except requests.RequestException as exc:
             print(f"✗ CrUX query failed: {exc}", file=sys.stderr,
                   flush=True)
@@ -329,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
                                     body, args.timeout)
                 results[ff] = metric_p75(record)
             except LookupError:
-                continue
+                results[ff] = {}
             except requests.RequestException as exc:
                 print(f"✗ CrUX query failed: {exc}", file=sys.stderr,
                       flush=True)
@@ -342,31 +441,45 @@ def main(argv: list[str] | None = None) -> int:
     if level == "origin":
         notes.append("the numbers below are ORIGIN-level: site-"
                      "wide, not this page's")
+    else:
+        # the fallback is all-or-nothing: page numbers for one form
+        # factor are never mixed with origin numbers for the other
+        for ff in ("PHONE", "DESKTOP"):
+            if not results.get(ff):
+                notes.append(
+                    f"{ff.lower()}: no page-level record — too few "
+                    "Chrome visits on this URL for this form "
+                    "factor; run the site root to read the origin "
+                    "numbers for it")
     emit({"type": "progress", "pct": 60,
           "message": f"{level} data"})
 
     # the 25-week trend (history, origin level — the stable record)
     series: dict = {}
+    labels: list[str] = []
     try:
         hist = crux_query(session, key, "queryHistoryRecord",
                           {"origin": origin, "metrics": METRICS},
                           args.timeout)
         series = history_series(hist)
+        labels = history_labels(hist)
+        if not series:
+            notes.append("the history record carries no p75 series "
+                         "for these metrics — the trend chart is "
+                         "absent, not guessed")
     except (LookupError, requests.RequestException):
         notes.append("no history record — the trend chart is "
                      "absent, not guessed")
     emit({"type": "progress", "pct": 100, "message": "Done"})
 
-    report = build_markdown(url, level, results, series, notes)
-    emit(build_table_event(url, level, results))
-    chart = build_chart_event(series)
+    report = build_markdown(url, level, results, notes,
+                            series, labels)
+    emit(build_table_event(results))
+    chart = build_chart_event(series, labels)
     emit(chart)
     emit({"type": "markdown", "content": report})
     write_artifacts(url, level, results, series, notes, report)
 
-    poor = sum(1 for ff in results.values() for m in ff
-               if "poor" in assess(m, ff[m])) \
-        if results else 0
     summary = (f"{level} level · "
                + " · ".join(f"{ff.lower()}: "
                             + ", ".join(

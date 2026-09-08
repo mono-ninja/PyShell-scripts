@@ -9,8 +9,11 @@ Evaluator shape:
   nonce/hash, modern browsers ignore `unsafe-inline` in script-src —
   that pairing is reported as transitional, not as the hole it
   would otherwise be.
-- **Wildcards** — `*`, `http:`, `https:`, `*.subdomain` in
-  script-src: the planet (or the subdomain's tenants) is inside.
+- **Wildcards and scheme sources** — `*`, `http:`, `https:`,
+  `*.subdomain`, `data:` (an injected data: URL is script the
+  policy blessed), `blob:`/`filesystem:` in script-src: the planet
+  (or the subdomain's tenants, or anything the page builds at
+  runtime) is inside.
 - **Bypass hosts** — the allowlist entries that can serve
   attacker-controlled or arbitrary script: unpkg, jsdelivr,
   raw.githubusercontent, the JSONP family, public buckets — a
@@ -23,9 +26,27 @@ Evaluator shape:
 - **Report-Only twin** — the same fetch's
   `Content-Security-Policy-Report-Only` diffed against the enforced
   policy: what is reported but tolerated, what is enforced but
-  never reported.
+  never reported, and what the report restricts while the enforced
+  policy doesn't mention it at all. A page carrying *only* a
+  Report-Only header gets its own verdict — a trial, not a defense.
+- **Both deliveries** — the headers *and*
+  `<meta http-equiv="Content-Security-Policy">` in the document
+  head. A meta policy is analyzed like any other, with what that
+  delivery costs named: it only covers what the parser reads after
+  the tag, `frame-ancestors`/`report-uri`/`sandbox` are dropped
+  there, and a meta *Report-Only* policy is ignored by browsers
+  outright.
+- **The policy as browsers read it** — several policies in one
+  response (repeated headers or commas) are each enforced on their
+  own, so only the holes *every* policy leaves open are reported;
+  keyword sources match case-insensitively; a directive repeated
+  inside one policy keeps its first occurrence, and the rest is
+  flagged as dead text.
 
 One fetch; every finding names the directive and the source.
+Redirects are followed and the final response is the one audited. A
+page with no policy at all gets a report too — the absence is a
+result, not a failed run.
 
 ## Using with PyShell
 
@@ -46,23 +67,28 @@ python3 main.py --url https://example.com/
   report: every finding with its reason, the Report-Only diff, and
   the shape to aim for (`script-src 'nonce-…' 'strict-dynamic'`,
   the one-liner foundations).
-- **Artifacts** — `report.md`, `findings.json` (the parsed policy
-  included).
+- **Artifacts** — `report.md`, `findings.json` (the parsed
+  policies, the merged view, the raw `<meta>` policies, the
+  Report-Only policy, and the requested vs. final URL).
 
 ### Verdicts
 
 🔴 script-src wide open (unsafe-inline without nonce, unsafe-eval,
-scheme wildcards) · 🟠 holes to close (bypass hosts, missing
-base-uri/frame-ancestors, subdomain wildcards) · 🟢 strict · 🟡
-present, plain.
+scheme wildcards, `data:` script) · 🔴 no CSP at all (no header and
+no `<meta>` policy) · 🟠 holes to close (bypass hosts,
+missing base-uri/frame-ancestors, subdomain wildcards) · 🟠
+report-only — nothing is enforced (a Report-Only header and no
+enforced policy) · 🟢 strict (nonce/hash or `strict-dynamic` in
+script-src, no holes) · 🟡 present, plain (a policy with no holes
+and no script-src strength — a plain host allowlist).
 
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
-| 0 | ran; the report is the picture |
-| 1 | unreachable, or no CSP header at all |
-| 2 | bad arguments (no http(s) URL) |
+| 0 | ran; the report is the picture — “no CSP at all” included |
+| 1 | unreachable |
+| 2 | bad arguments (no http(s) URL, or a timeout below 1s) |
 
 ## Layout
 

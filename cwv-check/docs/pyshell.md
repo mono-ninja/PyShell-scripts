@@ -22,6 +22,11 @@ sees it*.
    the *Chrome UX Report API* → Credentials → Create API key. Via
    `CRUX_API_KEY` (the Keychain in PyShell); without it the script
    exits with instructions, never an imitated number.
+   The field stays **empty-looking** after you reopen the script:
+   PyShell stores the key in the Keychain and never returns a
+   secret to the form. That is not a lost value — press Run and
+   see. Only if the run itself still exits with `CRUX_API_KEY is
+   not set` has the value really failed to reach the script.
 3. **Prepare Env** — installs `requests`. Press **Run** (⌘↩).
 
 ## Fields
@@ -46,6 +51,12 @@ sees it*.
   - **The data level** — page or origin, in the header; the
     origin fallback carries its note ("site-wide, not this
     page's").
+  - **The trend** — the same p75 history as the chart, in
+    prose (first → last, the direction, the assessment at the
+    end), so `report.md` carries it away from the Results tab.
+    It is the ORIGIN record across all form factors — said in
+    the section itself — and it needs two gapless periods:
+    below that the section is absent, not guessed.
   - **The lab-vs-field headline** — field red + lab green = the
     lab missed the visitors' conditions; field green + lab red =
     trust the field for ranking, the lab for diagnosing.

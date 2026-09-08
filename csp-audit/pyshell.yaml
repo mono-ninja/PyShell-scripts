@@ -1,8 +1,8 @@
 schema: 1
 id: com.pyshell.cspaudit
 name: CSP Audit
-version: 0.1
-description: "How strong the Content-Security-Policy really is — the Google-CSP-Evaluator-style deep dive: unsafe-inline/unsafe-eval with the nonce nuance, wildcards, the bypass hosts in your allowlist (a curated YAML: unpkg, raw.githubusercontent, JSONP CDNs), missing base-uri/object-src/frame-ancestors, strict-dynamic, and the Report-Only vs enforced diff"
+version: 0.2
+description: "How strong the Content-Security-Policy really is — the Google-CSP-Evaluator-style deep dive: unsafe-inline/unsafe-eval with the nonce nuance, wildcards, the bypass hosts in your allowlist (a curated YAML: unpkg, raw.githubusercontent, JSONP CDNs), missing base-uri/object-src/frame-ancestors, strict-dynamic, policies delivered by <meta http-equiv> as well as headers, and the Report-Only vs enforced diff"
 icon: lucide:file-code
 category: Security
 
