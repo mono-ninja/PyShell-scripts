@@ -22,6 +22,8 @@ row carries what it lists and a link to its lookup/delisting page.
 1. **IP or domain** — a sending IP (`198.51.100.25`) or a domain. A
    domain is resolved first: its A records (up to 8) go to the IP
    lists, the domain itself to the domain lists (Spamhaus DBL, SURBL).
+   A pasted URL works too — scheme, port, path, credentials and
+   fragment are stripped, the host is checked.
 2. Click **Prepare Env** — installs `dnspython`.
 3. Press **Run** (⌘↩). A full run is a dozen-plus DNS queries — seconds.
 
@@ -41,7 +43,9 @@ Spamhaus rows.
 
 - **IP or domain** — what gets checked. A bare IP is checked against
   the ten IP lists only; a domain adds its A records to the IP checks
-  and the domain itself to the two domain lists.
+  and the domain itself to the two domain lists. A pasted URL
+  (`https://example.com/inbox`) is accepted — it is reduced to its
+  host, and the run says so in a status line.
 - **Custom resolver (optional)** — query through this nameserver
   instead of the system one. Must be an IP address.
 - **Per-query timeout (s)** — each blocklist query gets this long
@@ -83,4 +87,5 @@ report can list an IP there; weigh it accordingly.
   blacklisted IP is a successful check that found a bad reputation.
 - `1` — the target is unusable (no A records and nothing to query), or
   every single query failed (DNS unusable from here).
-- `2` — bad arguments (not an IP or domain, bad nameserver).
+- `2` — bad arguments (no usable IP or domain in the target, bad
+  nameserver).

@@ -319,18 +319,45 @@ def resolve_domain_ips(resolver, domain: str) -> list[str] | None:
 # Target parsing (pure)
 # ---------------------------------------------------------------------------
 
+def _extract_host(text: str) -> str:
+    """The bare host from URL-dressed input — an operator pastes
+    ``https://user@example.com:443/inbox?x=1`` into the form; the run
+    must not die on it, and the host is the only part a blocklist can
+    be asked about anyway."""
+    if "://" in text:
+        text = text.split("://", 1)[1]
+    elif text.startswith("//"):                 # scheme-relative URL
+        text = text[2:]
+    for sep in ("/", "?", "#"):                  # path / query / fragment
+        text = text.split(sep, 1)[0]
+    if "@" in text:                              # userinfo — host follows
+        text = text.rsplit("@", 1)[1]
+    if text.startswith("[") and "]" in text:     # [IPv6 literal]
+        text = text[1:text.index("]")]
+    elif text.count(":") == 1:                   # trailing :port
+        head, tail = text.split(":")
+        if tail.isdigit():
+            text = head
+    return text
+
+
 def parse_target(raw: str) -> tuple[str, str | None]:
     """'(kind, value)' where kind is 'ip' or 'domain'.
 
     A bare IP is checked against the IP lists only; a domain brings its
-    A records to the IP lists and itself to the domain lists.
-    Raises ValueError for anything that is neither.
+    A records to the IP lists and itself to the domain lists. URL-dressed
+    input (a pasted ``https://host/path``, ``host:443``, ``user@host``)
+    is reduced to its host first. Raises ValueError for anything
+    without a usable host.
     """
     text = (raw or "").strip().lower().rstrip(".")
     if not text:
         raise ValueError("empty target")
+    host = _extract_host(text)
+    if not host:
+        raise ValueError(f"{text!r} is neither an IPv4 address nor a domain")
     try:
-        ip = ipaddress.ip_address(text)
+        ip = ipaddress.ip_address(host)
     except ValueError:
         # Not an IP literal at all ("dbltest.com") — ValueError, the
         # base class; AddressValueError only covers malformed literals
@@ -340,12 +367,13 @@ def parse_target(raw: str) -> tuple[str, str | None]:
     if ip is not None:
         if ip.version != 6:
             return "ip", str(ip)
-        raise ValueError(f"{text} is IPv6 — the public DNSBLs query "
+        raise ValueError(f"{host} is IPv6 — the public DNSBLs query "
                          f"reversed IPv4 only")
-    if DOMAIN_RE.match(text):
-        return "domain", text
-    raise ValueError(f"{text!r} is neither an IPv4 address nor a domain "
-                     f"(no scheme, no path)")
+    if DOMAIN_RE.match(host):
+        return "domain", host
+    raise ValueError(f"{raw.strip()!r} is neither an IPv4 address nor a "
+                     f"domain, and no host could be extracted from it — "
+                     f"pass a bare IP or domain")
 
 
 #: Big public resolvers — Spamhaus will not serve them on the free tier.
@@ -434,7 +462,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="DNSBL Check — is this IP or domain on the public "
                     "DNS blocklists?")
     parser.add_argument("--target", required=True,
-                        help="IPv4 address or domain to check")
+                        help="IPv4 address, domain, or URL — the host is "
+                             "extracted from a pasted URL")
     parser.add_argument("--nameserver", default=None,
                         help="custom resolver (default: the system resolver; "
                              "note that Spamhaus refuses big public resolvers "
@@ -458,6 +487,9 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(f"✗ {exc}", file=sys.stderr, flush=True)
         return 2
+
+    if value != args.target.strip().lower().rstrip("."):
+        status(f"⚠ pasted input reduced to its host: {value}")
 
     try:
         resolver = make_resolver(args.nameserver, args.timeout)

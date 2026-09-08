@@ -1,8 +1,8 @@
 schema: 1
 id: com.pyshell.dnsseccheck
 name: DNSSEC Check
-version: 0.1
-description: Can the DNS answer be trusted cryptographically — the DS/DNSKEY chain is validated from the IANA root anchor down to the domain, with key quality (algorithms, RSA key sizes, KSK/ZSK), signature expiry and an NSEC/NSEC3 peek; the sibling of DNS Propagation (same everywhere?) and Email DNS Audit
+version: 0.2
+description: Can the DNS answer be trusted cryptographically — the DS/DNSKEY chain is validated from the IANA root anchor down to the domain, with key quality (algorithms, RSA key sizes, KSK/ZSK), signature expiry and an NSEC/NSEC3 peek — the sibling of Email DNS Audit
 icon: lucide:check-circle
 category: Network
 
@@ -10,13 +10,13 @@ runtime:
   entry: main.py
   python: ">=3.11,<3.15"
   requirements: requirements.txt
-  timeout: 120
+  timeout: 180
 
 inputs:
   - key: domain
     type: string
     label: Domain
-    help: The zone to validate — the chain is walked from the root anchor through every parent down to it
+    help: The name to validate — the chain is walked from the root anchor through every parent down to it. A name that is not a zone cut of its own (www.example.com) inherits the security of the zone it lives in. Unicode names are accepted and converted to punycode
     required: true
     group: Target
     binding: {kind: arg, flag: "--domain", style: space}
@@ -24,7 +24,7 @@ inputs:
   - key: resolver
     type: string
     label: Resolver IP (optional)
-    help: "A custom resolver to query through (8.8.8.8, 1.1.1.1, your local one) — default: the system resolver. The validation itself is done here, not by the resolver"
+    help: "A custom resolver to query through, IPv4 or IPv6 (8.8.8.8, 1.1.1.1, your local one) — default: the system resolver. The validation itself is done here, not by the resolver"
     default: ""
     group: Target
     binding: {kind: arg, flag: "--resolver", style: space}
@@ -32,7 +32,7 @@ inputs:
   - key: timeout
     type: int
     label: "Per-query timeout (s)"
-    help: Each DNS query (with one retry, TCP fallback on truncation) gets this long
+    help: Each DNS query (with one retry, TCP fallback on truncation) gets this long. The whole walk also shares a 150 s budget, so a black-holing resolver cannot stall the run
     min: 3
     max: 60
     default: 10

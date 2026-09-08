@@ -1,8 +1,8 @@
 schema: 1
 id: com.pyshell.exifinspect
 name: EXIF Inspect
-version: 0.1
-description: See what your photos say about you — the EXIF dump with GPS coordinates spelled out and linked, camera, software and dates — with optional privacy-first stripping to clean copies
+version: 0.2
+description: See what your photos say about you — the EXIF dump with GPS coordinates spelled out and linked, camera, software, dates and the frames hidden inside multi-picture files — with optional privacy-first stripping to clean copies
 icon: lucide:camera
 category: Media
 
@@ -29,7 +29,7 @@ inputs:
     type: file
     label: Image
     help: The photo to inspect
-    extensions: [jpg, jpeg, tif, tiff, webp, png, heic, avif]
+    extensions: [jpg, jpeg, tif, tiff, webp, png, heic, heif, avif]
     visible_if:
       op: eq
       key: input_mode
@@ -41,7 +41,7 @@ inputs:
     type: files
     label: Images
     help: The photos to inspect (you can select several)
-    extensions: [jpg, jpeg, tif, tiff, webp, png, heic, avif]
+    extensions: [jpg, jpeg, tif, tiff, webp, png, heic, heif, avif]
     visible_if:
       op: eq
       key: input_mode
@@ -52,7 +52,7 @@ inputs:
   - key: input_folder
     type: dir
     label: Image folder
-    help: Every image in this folder is inspected (other files are noted as skipped)
+    help: Every image in this folder is inspected; non-image files are ignored
     visible_if:
       op: eq
       key: input_mode

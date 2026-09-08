@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.dnsblcheck
 name: DNSBL Check
-version: 0.1
+version: 0.2
 description: Check an IP or a domain against the major public DNS blocklists — Spamhaus, SpamCop, Barracuda, SORBS and more — with per-zone verdicts and delisting links
 icon: lucide:flag
 category: Network
@@ -16,7 +16,7 @@ inputs:
   - key: target
     type: string
     label: "IP or domain"
-    help: The sending IP (e.g. 198.51.100.25), or a domain — its A records are checked against the IP lists and the domain itself against the domain lists
+    help: The sending IP (e.g. 198.51.100.25), or a domain — its A records are checked against the IP lists and the domain itself against the domain lists. A pasted URL works too — the host is extracted
     required: true
     group: Target
     binding: {kind: arg, flag: "--target", style: space}

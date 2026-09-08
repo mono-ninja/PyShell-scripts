@@ -37,7 +37,8 @@ send from.
 
 1. Import this folder via **+ Folder** (⇧⌘O).
 2. Press **Prepare Env** — installs `dnspython`.
-3. **IP or domain** — `198.51.100.25` or `example.com`. Press **Run** (⌘↩).
+3. **IP or domain** — `198.51.100.25` or `example.com`. A pasted URL
+   works too — the host is extracted. Press **Run** (⌘↩).
 
 Field-by-field documentation lives in [`docs/pyshell.md`](docs/pyshell.md) —
 the same text is shown in PyShell's **Docs** panel (⌘D).
@@ -49,6 +50,7 @@ python3 -m pip install -r requirements.txt
 
 python3 main.py --target 198.51.100.25
 python3 main.py --target example.com
+python3 main.py --target https://example.com/inbox   # URL — host extracted
 python3 main.py --target 198.51.100.25 --workers 20
 # Spamhaus's official always-listed test vectors:
 python3 main.py --target 127.0.0.2
@@ -68,7 +70,8 @@ python3 main.py --target 127.0.0.2 --nameserver 1.1.1.1
 
 - `0` — the checks ran; listings are results, not failures.
 - `1` — nothing could be checked (no A records, or every query failed).
-- `2` — bad arguments (not an IP or domain, bad nameserver).
+- `2` — bad arguments (no usable IP or domain in the target, bad
+  nameserver).
 
 ## Layout
 

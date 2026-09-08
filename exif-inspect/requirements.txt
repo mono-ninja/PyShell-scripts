@@ -1,1 +1,5 @@
 Pillow>=10.0
+# HEIC/HEIF reading — Pillow alone opens AVIF but never HEIC, which is
+# what every iPhone shoots by default. Optional: without it those files
+# report as unreadable with a note saying so, and nothing else changes.
+pillow-heif>=1.0
