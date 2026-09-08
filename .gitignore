@@ -37,3 +37,4 @@ bot-hunter/run
 log-attack-checker/report.*
 log-attack-checker/logs/
 log-attack-checker/run
+cwv-check/
