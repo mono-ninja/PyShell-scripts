@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.ipsearch
 name: IP Search
-version: 1.0
+version: 0.1
 description: Resolve a site's IP address through every method at once (resolver, DoH, DoT, live TCP/HTTP, dig/host/nslookup) and cross-check — plus WHOIS, RDAP, DNS records, CDN/WAF detection, traceroute
 icon: lucide:globe
 category: Recon

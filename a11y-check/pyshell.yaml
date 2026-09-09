@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.a11ycheck
 name: A11y Check
-version: 1.0
+version: 0.1
 description: "The accessibility pass a page deserves — WCAG text contrast computed from static CSS with inheritance and specificity (the color-palette engine), forms without labels, heading skips, ARIA misuse, focus traps, zoom-blocking viewports, duplicate ids and generic link text — one fetch, honest about what static analysis cannot see"
 icon: lucide:users
 category: SEO

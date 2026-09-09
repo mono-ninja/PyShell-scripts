@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.dnsseccheck
 name: DNSSEC Check
-version: 0.2
+version: 0.1
 description: Can the DNS answer be trusted cryptographically — the DS/DNSKEY chain is validated from the IANA root anchor down to the domain, with key quality (algorithms, RSA key sizes, KSK/ZSK), signature expiry and an NSEC/NSEC3 peek — the sibling of Email DNS Audit
 icon: lucide:check-circle
 category: Network

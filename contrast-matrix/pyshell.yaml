@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.contrastmatrix
 name: Contrast Matrix
-version: 1.0
+version: 0.1
 description: "Every text/background pair of a palette judged before a single line is written — WCAG 2.2 AA and AAA for body and large text separately, plus APCA (Lc) as the second opinion, and for each failing pair the nearest shade that passes (lightness shifted in HSL until the threshold crosses). Works at the design stage with the full palette — the a11y-check sibling that runs before the page exists"
 icon: lucide:calculator
 category: Media

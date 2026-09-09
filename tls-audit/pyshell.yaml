@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.tlsaudit
 name: TLS Audit
-version: 0.2
+version: 0.1
 description: "Audit a host's TLS layer — certificate chain, expiry, hostname, key strength, protocols and weak ciphers — with a letter grade and concrete fixes; the certificate lifetime follows the SC-081 schedule (200 days from March 2026, 100 from 2027, 47 from 2029) with the renewal-cadence verdict, and an openssl-backed probe reports the post-quantum X25519MLKEM768 hybrid — honestly 'not checked' when the local OpenSSL is older than 3.5, never 'not supported'"
 icon: lucide:lock
 category: Security

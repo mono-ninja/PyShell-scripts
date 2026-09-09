@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.assetminify
 name: Asset Minify
-version: 1.0
+version: 0.1
 description: Minify CSS and JS with the built-in stdlib minifier, or through the system terser and clean-css-cli when they are installed — never overwriting the originals
 icon: lucide:wrench
 category: Media

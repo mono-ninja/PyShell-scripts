@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.corscheck
 name: CORS Check
-version: 1.0
+version: 0.1
 description: "Is the CORS policy actually strict — a series of requests with a spoofed Origin watches for reflection, the null origin, wildcard-plus-credentials and prefix/suffix matching traps, checks the preflight echo and the Vary: Origin that cache poisoning feeds on"
 icon: lucide:link
 category: Security

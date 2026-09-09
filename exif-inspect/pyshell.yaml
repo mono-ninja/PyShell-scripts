@@ -1,7 +1,7 @@
 schema: 1
 id: com.pyshell.exifinspect
 name: EXIF Inspect
-version: 0.2
+version: 0.1
 description: See what your photos say about you — the EXIF dump with GPS coordinates spelled out and linked, camera, software, dates and the frames hidden inside multi-picture files — with optional privacy-first stripping to clean copies
 icon: lucide:camera
 category: Media
